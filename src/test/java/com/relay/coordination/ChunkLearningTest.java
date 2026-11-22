@@ -23,7 +23,7 @@ class ChunkLearningTest {
   @Autowired ObjectMapper mapper;
 
   @Test
-  void rendersTheProjectFirstWorkflowAndChunkGuide() throws Exception {
+  void rendersTheProjectWorkflowAndTicketPages() throws Exception {
     mvc.perform(get("/"))
         .andExpect(status().isOk())
         .andExpect(
@@ -42,7 +42,7 @@ class ChunkLearningTest {
   }
 
   @Test
-  void guidesPersistIndependentlyAndRejectStaleEdits() throws Exception {
+  void ticketDetailsStayFocusedWhileExistingGuidesRemainAvailableViaApi() throws Exception {
     var created =
         mvc.perform(
                 post("/api/v1/items")
@@ -83,23 +83,36 @@ class ChunkLearningTest {
         .andExpect(status().isConflict());
     mvc.perform(get("/items/" + id))
         .andExpect(status().isOk())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("What to build")))
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("Definition of done")))
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("Save changes")))
         .andExpect(
             content()
                 .string(
-                    org.hamcrest.Matchers.containsString(
-                        "Understand this chunk before you build it")))
+                    org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Understand this chunk"))))
         .andExpect(
             content()
-                .string(org.hamcrest.Matchers.containsString("Understand constructor injection.")));
-    mvc.perform(
-            post("/ui/items/" + id + "/guide")
-                .param("version", "0")
-                .param("purpose", "A browser edit without signing in")
-                .param("learningGoal", "Review a focused change")
-                .param("steps", "Read and verify")
-                .param("reflection", "Reviewed"))
-        .andExpect(status().is3xxRedirection());
+                .string(
+                    org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Save learning guide"))))
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("1 Understand"))))
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Work through the guide"))))
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("name=\"purpose\""))));
     mvc.perform(get("/api/v1/items/" + id + "/guide"))
-        .andExpect(jsonPath("$.purpose").value("A browser edit without signing in"));
+        .andExpect(jsonPath("$.learningGoal").value("Understand constructor injection."));
+    mvc.perform(post("/ui/items/" + id + "/guide")).andExpect(status().isNotFound());
   }
 }

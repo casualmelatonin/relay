@@ -32,7 +32,7 @@ Chunk guides have their own optimistic version so a long explanation does not ha
 
 ## UI organization
 
-`WorkspacePageController` contains GET routes. `WorkspaceViewFactory` prepares common view data; `ProjectPlanPresenter` derives project progress, milestone groups, and a suggested next chunk. `WorkItemActionController`, `AgentActionController`, and `ChunkGuideActionController` handle form submissions using POST/redirect/GET.
+`WorkspacePageController` contains GET routes. `WorkspaceViewFactory` prepares common view data; `ProjectPlanPresenter` derives project progress, milestone groups, and a suggested next chunk. `WorkItemActionController` and `AgentActionController` handle form submissions using POST/redirect/GET.
 
 Feature templates are composed only inside conditional `th:block` wrappers. Keeping conditions outside replacement elements avoids Thymeleaf replacement precedence accidentally rendering unrelated pages. CSS is split by responsibility; there is no frontend JavaScript framework or duplicated client-side state machine.
 

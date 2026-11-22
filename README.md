@@ -1,6 +1,6 @@
 # Relay
 
-Relay helps a developer build a large project in small, understandable chunks with an AI assistant. It combines a project plan, a learning guide for every chunk, and a shared coordination protocol for agents.
+Relay helps a developer build a large project in small, understandable chunks with an AI assistant. It combines a project plan, focused ticket details, and a shared coordination protocol for agents.
 
 The intended loop is **define → break down → understand → build → review → continue**. Agent assignment supports that loop; it does not launch an agent or generate an entire application.
 
@@ -30,12 +30,12 @@ The preview used during development may run on port 5173; `--server.port=5173` s
 1. Create a **project** with a clear outcome and scope.
 2. Add a small number of **milestones**, each describing a useful deliverable.
 3. Split the first milestone into **chunks** small enough to explain, build, and verify independently.
-4. Open a chunk. Record **why it matters**, **what you should learn**, **small implementation steps**, and a **definition of done**.
+4. Open a ticket. Describe **what to build** and its **definition of done**.
 5. Use your AI assistant to explain the relevant code and implement that focused change. An agent can claim a Ready chunk through MCP or the REST API.
-6. Review the changed code and verification result. Attach a result, record what you learned, and mark the chunk Done.
+6. Review the changed code and verification result. Attach a result and mark the ticket Done.
 7. Continue to the next useful chunk. Revise the plan as understanding improves.
 
-Projects, milestones, stories, and chunks map to stable API enum values `INITIATIVE`, `EPIC`, `STORY`, and `TASK`. Existing agent tooling can use those values.
+Projects, milestones, stories, and chunks map to stable API enum values `INITIATIVE`, `EPIC`, `STORY`, and `TASK`. Existing agent tooling can use those values. Saved learning guides remain available through REST/MCP for clients that use them; the ticket page focuses on the work and its result.
 
 ## Project ticket prefixes
 
