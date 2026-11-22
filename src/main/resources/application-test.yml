@@ -5,6 +5,3 @@ spring:
     password: ''
 relay:
   demo-data: false
-  security:
-    operator-password: test-operator-password
-    agent-password: test-agent-password

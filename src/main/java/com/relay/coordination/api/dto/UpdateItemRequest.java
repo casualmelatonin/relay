@@ -25,4 +25,5 @@ public record UpdateItemRequest(
     @Size(max = 50) List<@NotBlank @Size(max = 100) String> labels,
     @Size(max = 50) List<@NotNull @Positive Long> dependencies,
     UUID agentId,
-    UUID claimToken) {}
+    UUID claimToken,
+    @Size(max = 12) String keyPrefix) {}

@@ -32,26 +32,22 @@ public class DemoDataConfiguration {
           service.registerAgent(
               new RegisterAgentRequest(
                   "Atlas", "Example profile · Planning", "example-atlas", "#7970ca"),
-              ACTOR,
-              true);
+              ACTOR);
       var nova =
           service.registerAgent(
               new RegisterAgentRequest(
                   "Nova", "Example profile · Frontend", "example-nova", "#d07c58"),
-              ACTOR,
-              true);
+              ACTOR);
       var relay =
           service.registerAgent(
               new RegisterAgentRequest(
                   "Relay", "Example profile · Backend", "example-relay", "#548c8b"),
-              ACTOR,
-              true);
+              ACTOR);
       var sentinel =
           service.registerAgent(
               new RegisterAgentRequest(
                   "Sentinel", "Example profile · Quality", "example-sentinel", "#5c83b5"),
-              ACTOR,
-              true);
+              ACTOR);
       var initiative =
           create(
               service,
@@ -168,9 +164,9 @@ public class DemoDataConfiguration {
               null,
               List.of(claims.id()),
               null,
+              null,
               null),
-          ACTOR,
-          true);
+          ACTOR);
       move(
           service,
           create(
@@ -272,9 +268,9 @@ public class DemoDataConfiguration {
             description,
             "Implemented behavior is reviewed and a completion summary is attached.",
             List.of(label),
-            List.of()),
-        ACTOR,
-        true);
+            List.of(),
+            null),
+        ACTOR);
   }
 
   private void move(CoordinationService service, WorkItemDto item, WorkStatus status) {
@@ -297,8 +293,8 @@ public class DemoDataConfiguration {
             null,
             null,
             null,
+            null,
             null),
-        ACTOR,
-        true);
+        ACTOR);
   }
 }

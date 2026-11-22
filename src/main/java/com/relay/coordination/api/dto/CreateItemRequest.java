@@ -18,4 +18,5 @@ public record CreateItemRequest(
     @Size(max = 8000) String description,
     @Size(max = 8000) String acceptance,
     @Size(max = 50) List<@NotBlank @Size(max = 100) String> labels,
-    @Size(max = 50) List<@NotNull @Positive Long> dependencies) {}
+    @Size(max = 50) List<@NotNull @Positive Long> dependencies,
+    @Size(max = 12) String keyPrefix) {}

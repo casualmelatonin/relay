@@ -13,7 +13,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/** Adds correlation without logging credentials and rejects browser cross-origin API mutations. */
+/** Adds request correlation, browser response headers, and same-origin mutation checks. */
 @Component("relayRequestContextFilter")
 @Order(Ordered.HIGHEST_PRECEDENCE + 20)
 public class RequestContextFilter extends OncePerRequestFilter {
@@ -21,6 +21,12 @@ public class RequestContextFilter extends OncePerRequestFilter {
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
+    response.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'none'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.setHeader("X-Frame-Options", "DENY");
+    response.setHeader("Referrer-Policy", "same-origin");
     String supplied = request.getHeader("X-Request-Id");
     String requestId =
         supplied != null && supplied.matches("[A-Za-z0-9-]{8,64}")
@@ -30,7 +36,7 @@ public class RequestContextFilter extends OncePerRequestFilter {
     response.setHeader("X-Request-Id", requestId);
     try {
       String path = request.getRequestURI();
-      boolean api = path.startsWith("/api/") || path.equals("/mcp");
+      boolean api = path.startsWith("/api/") || path.equals("/mcp") || path.startsWith("/ui/");
       if (api && !request.getMethod().equals("GET") && !request.getMethod().equals("HEAD")) {
         String origin = request.getHeader("Origin");
         if ("cross-site".equals(request.getHeader("Sec-Fetch-Site"))

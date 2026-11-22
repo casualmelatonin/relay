@@ -1,7 +1,6 @@
 package com.relay.coordination.chunk;
 
 import jakarta.validation.Valid;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -19,8 +18,7 @@ public class ChunkGuideApiController {
   }
 
   @PutMapping
-  public ChunkGuideDto save(
-      @PathVariable long id, @Valid @RequestBody ChunkGuideRequest request, Authentication actor) {
-    return guides.save(id, request, actor.getName());
+  public ChunkGuideDto save(@PathVariable long id, @Valid @RequestBody ChunkGuideRequest request) {
+    return guides.save(id, request, "workspace");
   }
 }

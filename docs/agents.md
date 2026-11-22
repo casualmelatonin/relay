@@ -2,9 +2,9 @@
 
 The application exposes JSON REST endpoints under `/api/v1` and a stateless HTTP JSON-RPC MCP endpoint at `/mcp`. Use JSON request bodies, numeric item IDs, UUID agent IDs, and uppercase domain enum values.
 
-Production clients use a bearer JWT from the configured OIDC issuer, with `relay.read` and/or `relay.write` scopes. `relay_roles: ["ADMIN"]` grants workspace administration. The JWT subject must match the registered agent profile's subject. A caller cannot act as another subject's agent by supplying its ID.
+No login, bearer token, or HTTP Basic credentials are required. All clients share workspace access. Agent `subject` is an optional runtime label, not an authenticated identity; it defaults to `workspace` when omitted. Activity uses the shared `workspace` actor and is not proof of who performed an action.
 
-Local development supports HTTP Basic using the separate `operator` and `agent` accounts documented in the README. Browser UI writes require the administrator role and CSRF tokens; the stateless API checks scopes, origin, principal ownership, versions, and execution proofs.
+Browser-origin checks, work-item versions, execution lease tokens, and dependency rules still apply. Claim tokens coordinate current execution; they are not account credentials.
 
 ## Plan in chunks
 
@@ -34,4 +34,4 @@ MCP tools:
 
 Work updates use flat fields, not a nested `fields` object. Omitted fields preserve existing values. `clearParent: true` and `clearAssignee: true` explicitly clear relationships. Versions are required and cannot be omitted even on a version-zero item.
 
-Executable updates from agents need the active claimant ID, current claim token, and current item version. Completion also requires `output`, finished prerequisites, and finished child work. Assignment does not acquire a claim. Administrators can review/change work without pretending to be a running agent, but cannot reassign a live claim before releasing it.
+Updates to claimed work need the active claimant ID, current claim token, and current item version. Unclaimed work can be edited and reviewed directly. Completion also requires `output`, finished prerequisites, and finished child work. Assignment does not acquire a claim. A live claim must be released before reassignment. Expired claims must be reacquired or released before further updates.

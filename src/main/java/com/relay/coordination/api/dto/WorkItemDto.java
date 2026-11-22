@@ -26,4 +26,5 @@ public record WorkItemDto(
     List<Long> dependencies,
     long version,
     Instant createdAt,
-    Instant updatedAt) {}
+    Instant updatedAt,
+    String keyPrefix) {}

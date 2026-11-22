@@ -31,6 +31,9 @@ public class WorkItem {
 
   @Version private long version;
 
+  @Column(name = "key_prefix", length = 12)
+  private String keyPrefix;
+
   @Column(nullable = false, length = 240)
   private String title;
 
@@ -124,6 +127,14 @@ public class WorkItem {
 
   public long getVersion() {
     return version;
+  }
+
+  public String getKeyPrefix() {
+    return keyPrefix;
+  }
+
+  public void setKeyPrefix(String keyPrefix) {
+    this.keyPrefix = keyPrefix;
   }
 
   public String getTitle() {

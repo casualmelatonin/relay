@@ -20,6 +20,14 @@ public final class ToolCatalog {
             TEXT,
             "type",
             enumeration("INITIATIVE", "EPIC", "STORY", "TASK"),
+            "keyPrefix",
+            Map.of(
+                "type",
+                "string",
+                "maxLength",
+                12,
+                "description",
+                "Project ticket prefix (INITIATIVE only); child work inherits it. Blank resets to RLY. Numeric IDs remain unchanged."),
             "parentId",
             ID,
             "priority",
@@ -101,19 +109,19 @@ public final class ToolCatalog {
             "version"),
         tool(
             "create_item",
-            "Create work in Backlog. Initiatives contain epics; epics contain stories/tasks; tasks can contain subtasks. Only administrators can assign another principal’s profile.",
+            "Create work in Backlog. Initiatives contain epics; epics contain stories/tasks; tasks can contain subtasks.",
             create,
             "title",
             "type"),
         tool(
             "update_item",
-            "Update using the current version. Agents need their authenticated profile and current claimToken for execution progress/output. Complete prerequisites and child work first; include completion evidence. Use explicit clearParent/clearAssignee flags to clear links.",
+            "Update using the current version. Claimed work needs its current agentId and claimToken for execution progress/output. Complete prerequisites and child work first; include completion evidence. Use explicit clearParent/clearAssignee flags to clear links.",
             update,
             "id",
             "version"),
         tool(
             "register_agent",
-            "Register an identity bound to your authenticated subject. Only an administrator can register another subject. This does not launch a process.",
+            "Register an agent profile with an optional runtime label (subject). This does not launch a process.",
             fields(
                 "name",
                 TEXT,
@@ -142,7 +150,7 @@ public final class ToolCatalog {
             "claimToken"),
         tool(
             "heartbeat",
-            "Renew all unexpired claims for your authenticated agent profile. Supply every held task’s itemId and current claimToken in claims. Expired claims must be reacquired; heartbeat does not resurrect them.",
+            "Renew all unexpired claims for an agent profile. Supply every held task’s itemId and current claimToken in claims. Expired claims must be reacquired; heartbeat does not resurrect them.",
             fields(
                 "agentId",
                 UUID,
@@ -152,7 +160,7 @@ public final class ToolCatalog {
             "claims"),
         tool(
             "add_comment",
-            "Append progress, a blocker, or handoff context. Audit attribution comes from the authenticated principal.",
+            "Append progress, a blocker, or handoff context. Activity is recorded under the shared workspace actor.",
             fields("id", ID, "body", TEXT),
             "id",
             "body"),

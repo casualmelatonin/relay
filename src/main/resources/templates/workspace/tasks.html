@@ -1,5 +1,5 @@
 <html xmlns:th="http://www.thymeleaf.org"><body><section th:fragment="tasks">
-<header class="page-heading"><div><div class="eyebrow">TEAM WORKSPACE</div><h1>All chunks</h1><p>Small pieces of work across your projects. Open a chunk to understand, build, and review it.</p></div><a th:if="${admin}" class="button primary" th:href="@{/items/new}"><svg class="icon"><use href="#plus"/></svg>New chunk</a></header>
+<header class="page-heading"><div><div class="eyebrow">TEAM WORKSPACE</div><h1>All chunks</h1><p>Small pieces of work across your projects. Open a chunk to understand, build, and review it.</p></div><a class="button primary" th:href="@{/items/new}"><svg class="icon"><use href="#plus"/></svg>New chunk</a></header>
 <div class="summary-grid" aria-label="Task summary">
 <a class="summary-card" th:href="@{/(view='tasks',status='READY')}"><span><i class="state-dot ready"></i>Ready to start</span><strong th:text="${@ui.count(items,'READY')}">0</strong><small>A focused next step</small></a>
 <a class="summary-card" th:href="@{/(view='tasks',status='IN_PROGRESS')}"><span><i class="state-dot in_progress"></i>In progress</span><strong th:text="${@ui.count(items,'IN_PROGRESS')}">0</strong><small>Build and understand it</small></a>

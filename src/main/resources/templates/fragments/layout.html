@@ -46,11 +46,11 @@
   </nav>
   <div class="sidebar-bottom">
     <a class="connection-link" th:href="@{/(view='tools')}" th:classappend="${view == 'tools'} ? 'active'"><svg class="icon"><use href="#code"/></svg><span>Connect your agents<small>MCP and API guide</small></span><span>↗</span></a>
-    <div class="profile"><span class="avatar" th:text="${@ui.initials(actor)}">OP</span><div><strong th:text="${actor}">operator</strong><small th:text="${admin ? 'Administrator' : 'Member'}">Administrator</small></div><form method="post" th:action="@{/logout}"><button class="icon-button" aria-label="Sign out"><svg class="icon"><use href="#logout"/></svg></button></form></div>
+    <div class="profile"><span class="avatar">R</span><div><strong>Relay</strong><small>Shared workspace</small></div></div>
   </div>
 </aside>
 <main class="main" id="main-content">
-  <header class="topbar"><div class="breadcrumbs">Workspace <span>/</span><strong th:text="${view == 'initiatives' ? 'Project plan' : (view == 'tasks' or view == 'board' ? 'Chunks' : @ui.label(view))}">Tasks</strong></div><div class="topbar-note"><svg class="icon"><use href="#shield"/></svg>Authenticated workspace</div></header>
+  <header class="topbar"><div class="breadcrumbs">Workspace <span>/</span><strong th:text="${view == 'initiatives' ? 'Project plan' : (view == 'tasks' or view == 'board' ? 'Chunks' : @ui.label(view))}">Tasks</strong></div><div class="topbar-note"><svg class="icon"><use href="#shield"/></svg>Shared workspace</div></header>
   <div class="demo-banner" th:if="${demoData}"><span class="demo-dot"></span><strong>Example project</strong><span>This sample shows how to develop Relay one chunk at a time. Create a project to plan your own work.</span></div>
   <div th:replace="${pageContent}"></div>
   <footer class="site-footer">Relay · One project, one chunk at a time<span>Changes are saved to the shared workspace.</span></footer>

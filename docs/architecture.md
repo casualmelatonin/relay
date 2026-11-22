@@ -20,7 +20,7 @@ flowchart LR
 
 ## Change boundaries
 
-Controllers adapt transport input and establish the authenticated actor. They do not implement claim or dependency rules. DTO records and Bean Validation define the external input contracts. Domain errors are returned as Problem Details by the REST adapter and as tool errors by MCP.
+Controllers adapt transport input and record changes under the shared workspace actor. There is no account authentication or role authorization. They do not implement claim or dependency rules. DTO records and Bean Validation define the external input contracts. Domain errors are returned as Problem Details by the REST adapter and as tool errors by MCP.
 
 `CoordinationService` owns the transaction for every change. The singleton `workspace_lock` row is locked before graph decisions, ownership changes, claim acquisition, or audit insertion. The same lock is used by the chunk guide service. This works across application replicas because the lock lives in the database.
 

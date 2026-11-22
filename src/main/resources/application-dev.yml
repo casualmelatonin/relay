@@ -9,6 +9,3 @@ spring:
     cache: false
 relay:
   demo-data: true
-  security:
-    operator-password: ${RELAY_OPERATOR_PASSWORD:local-only-change-me}
-    agent-password: ${RELAY_AGENT_PASSWORD:local-agent-change-me}

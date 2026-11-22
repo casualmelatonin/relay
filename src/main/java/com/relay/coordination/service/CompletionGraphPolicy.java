@@ -5,7 +5,7 @@ import com.relay.coordination.persistence.WorkItem;
 import java.util.*;
 import org.springframework.stereotype.Component;
 
-/** Pure graph policy, isolated from transactions, authentication, and transport adapters. */
+/** Pure graph policy, isolated from transactions and transport adapters. */
 @Component
 final class CompletionGraphPolicy {
   void validateParent(WorkItem child, Map<Long, WorkItem> graph) {
@@ -95,7 +95,7 @@ final class CompletionGraphPolicy {
     List<String> blockers =
         current.getDependencies().stream()
             .filter(id -> item(graph, id).getStatus() != WorkStatus.DONE)
-            .map(id -> "RLY-" + id)
+            .map(id -> WorkItemKeys.key(item(graph, id), graph::get))
             .sorted()
             .toList();
     if (!blockers.isEmpty())

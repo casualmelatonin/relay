@@ -1,7 +1,6 @@
 package com.relay.coordination.web;
 
 import com.relay.coordination.chunk.*;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -18,10 +17,9 @@ public class ChunkGuideActionController {
   public String save(
       @PathVariable long id,
       @ModelAttribute ChunkGuideRequest request,
-      Authentication actor,
       RedirectAttributes redirect) {
     try {
-      guides.save(id, request, actor.getName());
+      guides.save(id, request, "workspace");
       redirect.addFlashAttribute(
           "success", "Learning guide saved. Review it before you start building.");
     } catch (com.relay.coordination.domain.DomainException error) {

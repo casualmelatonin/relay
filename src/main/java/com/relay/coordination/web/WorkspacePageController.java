@@ -5,7 +5,6 @@ import com.relay.coordination.service.CoordinationService;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -39,18 +38,16 @@ public final class WorkspacePageController {
       @RequestParam(defaultValue = "") String priority,
       @RequestParam(defaultValue = "") String status,
       @RequestParam(required = false) Long project,
-      Authentication auth,
       Model model) {
-    views.populate(
-        model, auth, VIEWS.contains(view) ? view : "tasks", q, type, agent, priority, status);
+    views.populate(model, VIEWS.contains(view) ? view : "tasks", q, type, agent, priority, status);
     model.addAttribute("projectFilter", project);
     return "workspace";
   }
 
   @GetMapping("/items/{id}")
-  public String item(@PathVariable long id, Authentication auth, Model model) {
+  public String item(@PathVariable long id, Model model) {
     var item = service.getItem(id);
-    views.populate(model, auth, "tasks", "", "", "", "", "");
+    views.populate(model, "tasks", "", "", "", "", "");
     model.addAttribute("selected", item);
     model.addAttribute(
         "guide",
@@ -63,9 +60,8 @@ public final class WorkspacePageController {
   public String newItem(
       @RequestParam(defaultValue = "TASK") ItemType type,
       @RequestParam(required = false) Long parent,
-      Authentication auth,
       Model model) {
-    views.populate(model, auth, "tasks", "", "", "", "", "");
+    views.populate(model, "tasks", "", "", "", "", "");
     if (!model.containsAttribute("form")) {
       Map<String, String> form = new HashMap<>();
       form.put("type", type.name());
@@ -77,8 +73,8 @@ public final class WorkspacePageController {
   }
 
   @GetMapping("/agents/new")
-  public String newAgent(Authentication auth, Model model) {
-    views.populate(model, auth, "agents", "", "", "", "", "");
+  public String newAgent(Model model) {
+    views.populate(model, "agents", "", "", "", "", "");
     if (!model.containsAttribute("form")) model.addAttribute("form", Map.of("color", "#5265dd"));
     return "new-agent";
   }

@@ -12,19 +12,3 @@ spring:
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:10}
       connection-timeout: 10000
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${OIDC_ISSUER_URI}
-          audiences: ${OIDC_AUDIENCE:relay}
-      client:
-        registration:
-          relay:
-            provider: relay
-            client-id: ${OIDC_CLIENT_ID}
-            client-secret: ${OIDC_CLIENT_SECRET}
-            scope: openid,profile,email
-        provider:
-          relay:
-            issuer-uri: ${OIDC_ISSUER_URI}

@@ -1,8 +1,6 @@
 package com.relay.coordination;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -60,78 +58,59 @@ class CoordinationIntegrationTest {
   }
 
   @Test
-  void healthIsPublicButRestAndMcpRequireAuthentication() throws Exception {
+  void workspaceRestAndMcpAreAccessibleWithoutCredentials() throws Exception {
     mvc.perform(get("/actuator/health")).andExpect(status().isOk());
-    mvc.perform(get("/api/v1/workspace")).andExpect(status().isUnauthorized());
-    mvc.perform(
-            post("/mcp")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    mapper.writeValueAsString(
-                        payload("jsonrpc", "2.0", "id", 1, "method", "tools/list"))))
-        .andExpect(status().isUnauthorized());
-    mvc.perform(get("/api/v1/workspace").with(httpBasic("operator", "wrong-password")))
-        .andExpect(status().isUnauthorized());
-    JsonNode workspace = success(get("/api/v1/workspace"), "operator", null);
+    mvc.perform(get("/")).andExpect(status().isOk());
+    JsonNode workspace = success(get("/api/v1/workspace"), null);
     assertTrue(workspace.path("items").isArray());
     assertTrue(workspace.path("agents").isArray());
     assertTrue(workspace.path("activity").isArray());
+    JsonNode tools = mcp("tools/list", payload());
+    assertTrue(tools.path("result").path("tools").isArray());
+    mvc.perform(get("/login")).andExpect(status().isNotFound());
+    mvc.perform(get("/actuator/prometheus")).andExpect(status().isNotFound());
   }
 
   @Test
-  void browserFormLoginRequiresCsrfWhileAuthenticatedRestDoesNot() throws Exception {
-    mvc.perform(
-            post("/login")
-                .param("username", "operator")
-                .param("password", "test-operator-password"))
-        .andExpect(status().isForbidden());
-    mvc.perform(
-            post("/login")
-                .with(csrf())
-                .param("username", "operator")
-                .param("password", "test-operator-password"))
-        .andExpect(status().is3xxRedirection());
-    JsonNode created = create(payload());
-    assertTrue(created.path("id").asLong() > 0);
+  void browserFormsCreateWorkWithoutLoginOrSessionTokens() throws Exception {
+    mvc.perform(post("/ui/items").param("title", unique("Browser chunk")).param("type", "TASK"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(
+            org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern(
+                "/items/*"));
+    mvc.perform(post("/ui/agents").param("name", unique("Browser agent")).param("role", "Builder"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(
+            org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl(
+                "/?view=agents"));
   }
 
   @Test
   void crossOriginMutationIsRejectedBeforeTheController() throws Exception {
+    mvc.perform(
+            post("/ui/items")
+                .header(HttpHeaders.ORIGIN, "https://untrusted.example")
+                .param("title", "Cross-origin form")
+                .param("type", "TASK"))
+        .andExpect(status().isForbidden());
     perform(
             post("/api/v1/items").header(HttpHeaders.ORIGIN, "https://untrusted.example"),
-            "operator",
             payload("title", unique("Cross origin"), "type", "TASK"))
         .andExpect(status().isForbidden());
     JsonNode created =
         success(
             post("/api/v1/items").header(HttpHeaders.ORIGIN, "http://localhost"),
-            "operator",
             payload("title", unique("Same origin"), "type", "TASK"));
     assertTrue(created.path("id").asLong() > 0);
   }
 
   @Test
-  void agentIdentityCannotRegisterOrExecuteAsAnotherPrincipal() throws Exception {
-    JsonNode owned =
-        success(
-            post("/api/v1/agents"),
-            "agent",
-            payload("name", unique("Self"), "role", "Builder", "subject", "agent"));
-    assertEquals("agent", owned.path("subject").asText());
-    perform(
-            post("/api/v1/agents"),
-            "agent",
-            payload("name", unique("Impersonation"), "role", "Builder", "subject", "operator"))
-        .andExpect(status().isForbidden());
-
-    JsonNode foreign = register("operator");
-    JsonNode task = ready(payload("assigneeId", foreign.path("id").asText()));
-    perform(
-            post(itemUrl(task) + "/claim"),
-            "agent",
-            payload("agentId", foreign.path("id").asText(), "version", version(task)))
-        .andExpect(status().isForbidden());
-    assertTrue(getItem(task).path("claimantId").isNull());
+  void sharedWorkspaceCanRegisterAndClaimAnyAgentProfile() throws Exception {
+    JsonNode profile = register("runtime-atlas");
+    JsonNode task = ready(payload("assigneeId", profile.path("id").asText()));
+    JsonNode claimed = claim(task, profile);
+    assertEquals(profile.path("id"), claimed.path("claimantId"));
+    assertFalse(claimed.path("claimToken").asText().isBlank());
   }
 
   @Test
@@ -143,7 +122,6 @@ class CoordinationIntegrationTest {
     assertEquals(id(story), task.path("parentId").asLong());
     perform(
             post("/api/v1/items"),
-            "operator",
             payload("title", unique("Invalid story"), "type", "STORY", "parentId", id(initiative)))
         .andExpect(status().is4xxClientError());
 
@@ -162,14 +140,13 @@ class CoordinationIntegrationTest {
 
     perform(
             post(itemUrl(dependent) + "/claim"),
-            "operator",
             payload("agentId", agent.path("id").asText(), "version", version(dependent)))
         .andExpect(status().is4xxClientError());
     for (String state : List.of("IN_PROGRESS", "REVIEW", "DONE")) {
       assertRejectedUnchanged(dependent, payload("status", state, "output", "Completed result"));
     }
     updateItem(prerequisite, payload("status", "DONE", "output", "Prerequisite delivered"));
-    JsonNode claimed = claim(dependent, agent, "operator");
+    JsonNode claimed = claim(dependent, agent);
     assertEquals("IN_PROGRESS", claimed.path("status").asText());
     assertEquals(agent.path("id"), claimed.path("claimantId"));
   }
@@ -201,7 +178,6 @@ class CoordinationIntegrationTest {
     assertRejectedUnchanged(child, payload("status", "READY"));
     perform(
             post("/api/v1/items"),
-            "operator",
             payload(
                 "title", unique("New unfinished child"), "type", "TASK", "parentId", id(parent)))
         .andExpect(status().is4xxClientError());
@@ -215,7 +191,6 @@ class CoordinationIntegrationTest {
     long activityBefore = itemActivityCount(id(original));
     perform(
             patch(itemUrl(original)),
-            "operator",
             payload("version", version(original), "title", "Stale overwrite"))
         .andExpect(status().isConflict());
     JsonNode current = getItem(original);
@@ -228,12 +203,9 @@ class CoordinationIntegrationTest {
     JsonNode task = create(payload());
     assertEquals(0, version(task));
     JsonNode agent = register("operator");
-    perform(patch(itemUrl(task)), "operator", payload("title", "Missing version"))
+    perform(patch(itemUrl(task)), payload("title", "Missing version"))
         .andExpect(status().isUnprocessableEntity());
-    perform(
-            post(itemUrl(task) + "/claim"),
-            "operator",
-            payload("agentId", agent.path("id").asText()))
+    perform(post(itemUrl(task) + "/claim"), payload("agentId", agent.path("id").asText()))
         .andExpect(status().isUnprocessableEntity());
     assertEquals(task, getItem(task));
     JsonNode rejected =
@@ -253,7 +225,7 @@ class CoordinationIntegrationTest {
     JsonNode agent = register("agent");
     JsonNode other = register("operator");
     JsonNode task = ready(payload("assigneeId", agent.path("id").asText()));
-    JsonNode claimed = claim(task, agent, "agent");
+    JsonNode claimed = claim(task, agent);
     assertFalse(claimed.path("claimToken").asText().isBlank());
     assertRejectedUnchanged(claimed, payload("assigneeId", other.path("id").asText()));
 
@@ -268,13 +240,12 @@ class CoordinationIntegrationTest {
                 UUID.randomUUID().toString()))) {
       Map<String, Object> body = payload("version", version(claimed), "output", "Unproven result");
       body.putAll(proof);
-      perform(patch(itemUrl(claimed)), "agent", body).andExpect(status().is4xxClientError());
+      perform(patch(itemUrl(claimed)), body).andExpect(status().is4xxClientError());
       assertEquals(claimed, getItem(claimed));
     }
     JsonNode done =
         success(
             patch(itemUrl(claimed)),
-            "agent",
             payload(
                 "version",
                 version(claimed),
@@ -296,13 +267,12 @@ class CoordinationIntegrationTest {
   void expiredClaimsCannotReportProgressAndReclaimInvalidatesOldRunnerTokens() throws Exception {
     JsonNode agent = register("agent");
     JsonNode task = ready(payload("assigneeId", agent.path("id").asText()));
-    JsonNode first = claim(task, agent, "agent");
+    JsonNode first = claim(task, agent);
     String oldToken = first.path("claimToken").asText();
     clock.set(Instant.parse(first.path("leaseUntil").asText()));
 
     perform(
             patch(itemUrl(first)),
-            "agent",
             payload(
                 "version",
                 version(first),
@@ -315,16 +285,25 @@ class CoordinationIntegrationTest {
         .andExpect(status().is4xxClientError());
     perform(
             post("/api/v1/agents/" + agent.path("id").asText() + "/heartbeat"),
-            "agent",
             payload("claims", List.of(payload("itemId", id(first), "claimToken", oldToken))))
         .andExpect(status().is4xxClientError());
     assertEquals(first.path("leaseUntil"), getItem(first).path("leaseUntil"));
 
-    JsonNode current = claim(getItem(first), agent, "agent");
+    JsonNode releasedExpired =
+        success(
+            post(itemUrl(first) + "/release"),
+            payload(
+                "version",
+                version(first),
+                "agentId",
+                agent.path("id").asText(),
+                "claimToken",
+                oldToken));
+    assertTrue(releasedExpired.path("claimToken").isNull());
+    JsonNode current = claim(releasedExpired, agent);
     assertNotEquals(oldToken, current.path("claimToken").asText());
     perform(
             patch(itemUrl(current)),
-            "agent",
             payload(
                 "version",
                 version(current),
@@ -337,7 +316,6 @@ class CoordinationIntegrationTest {
         .andExpect(status().is4xxClientError());
     perform(
             post(itemUrl(current) + "/release"),
-            "agent",
             payload(
                 "version",
                 version(current),
@@ -349,7 +327,6 @@ class CoordinationIntegrationTest {
     JsonNode released =
         success(
             post(itemUrl(current) + "/release"),
-            "agent",
             payload(
                 "version",
                 version(current),
@@ -364,16 +341,14 @@ class CoordinationIntegrationTest {
   @Test
   void invalidHeartbeatProofRollsBackAllLeaseAndPresenceChanges() throws Exception {
     JsonNode agent = register("agent");
-    JsonNode first = claim(ready(payload("assigneeId", agent.path("id").asText())), agent, "agent");
-    JsonNode second =
-        claim(ready(payload("assigneeId", agent.path("id").asText())), agent, "agent");
+    JsonNode first = claim(ready(payload("assigneeId", agent.path("id").asText())), agent);
+    JsonNode second = claim(ready(payload("assigneeId", agent.path("id").asText())), agent);
     JsonNode agentBefore = findAgent(agent.path("id").asText());
     clock.set(NOW.plus(Duration.ofMinutes(5)));
     String endpoint = "/api/v1/agents/" + agent.path("id").asText() + "/heartbeat";
 
     perform(
             post(endpoint),
-            "agent",
             payload(
                 "claims",
                 List.of(
@@ -386,7 +361,6 @@ class CoordinationIntegrationTest {
 
     perform(
             post(endpoint),
-            "agent",
             payload(
                 "claims",
                 List.of(
@@ -400,7 +374,6 @@ class CoordinationIntegrationTest {
 
     success(
         post(endpoint),
-        "agent",
         payload(
             "claims",
             List.of(
@@ -433,7 +406,6 @@ class CoordinationIntegrationTest {
                     throw new IllegalStateException("Claim race did not start");
                   return perform(
                           post(itemUrl(task) + "/claim"),
-                          "operator",
                           payload("agentId", agent.path("id").asText(), "version", version(task)))
                       .andReturn()
                       .getResponse()
@@ -462,14 +434,12 @@ class CoordinationIntegrationTest {
   }
 
   @Test
-  void commentsUseTheAuthenticatedPrincipalInTheAuditTrail() throws Exception {
+  void commentsUseTheSharedWorkspaceActorInTheAuditTrail() throws Exception {
     JsonNode task = create(payload());
     JsonNode comment =
         success(
-            post(itemUrl(task) + "/comments"),
-            "agent",
-            payload("body", "Verification artifact is ready"));
-    assertEquals("agent", comment.path("actor").asText());
+            post(itemUrl(task) + "/comments"), payload("body", "Verification artifact is ready"));
+    assertEquals("workspace", comment.path("actor").asText());
     assertEquals(id(task), comment.path("itemId").asLong());
     assertEquals("Verification artifact is ready", comment.path("message").asText());
   }
@@ -511,8 +481,7 @@ class CoordinationIntegrationTest {
     assertFalse(response.path("result").path("isError").asBoolean());
     JsonNode created =
         mapper.readTree(response.path("result").path("content").get(0).path("text").asText());
-    JsonNode persisted =
-        success(get("/api/v1/items/" + created.path("id").asLong()), "operator", null);
+    JsonNode persisted = success(get("/api/v1/items/" + created.path("id").asLong()), null);
     assertEquals(created.path("title"), persisted.path("title"));
 
     JsonNode rejected =
@@ -530,7 +499,7 @@ class CoordinationIntegrationTest {
   private JsonNode create(Map<String, Object> extra) throws Exception {
     Map<String, Object> body = payload("title", unique("Work"), "type", "TASK");
     body.putAll(extra);
-    return success(post("/api/v1/items"), "operator", body);
+    return success(post("/api/v1/items"), body);
   }
 
   private JsonNode ready(Map<String, Object> extra) throws Exception {
@@ -540,45 +509,43 @@ class CoordinationIntegrationTest {
   private JsonNode updateItem(JsonNode item, Map<String, Object> fields) throws Exception {
     Map<String, Object> body = payload("version", version(item));
     body.putAll(fields);
-    return success(patch(itemUrl(item)), "operator", body);
+    return success(patch(itemUrl(item)), body);
   }
 
   private JsonNode register(String subject) throws Exception {
     return success(
         post("/api/v1/agents"),
-        "operator",
         payload("name", unique("Agent"), "role", "Builder", "subject", subject));
   }
 
-  private JsonNode claim(JsonNode task, JsonNode agent, String principal) throws Exception {
+  private JsonNode claim(JsonNode task, JsonNode agent) throws Exception {
     return success(
         post(itemUrl(task) + "/claim"),
-        principal,
         payload("agentId", agent.path("id").asText(), "version", version(task)));
   }
 
   private JsonNode getItem(JsonNode item) throws Exception {
-    return success(get(itemUrl(item)), "operator", null);
+    return success(get(itemUrl(item)), null);
   }
 
   private void assertRejectedUnchanged(JsonNode item, Map<String, Object> fields) throws Exception {
     JsonNode before = getItem(item);
     Map<String, Object> body = payload("version", version(before));
     body.putAll(fields);
-    perform(patch(itemUrl(item)), "operator", body).andExpect(status().is4xxClientError());
+    perform(patch(itemUrl(item)), body).andExpect(status().is4xxClientError());
     assertEquals(before, getItem(item));
   }
 
   private long itemActivityCount(long itemId) throws Exception {
     long count = 0;
-    for (JsonNode event : success(get("/api/v1/workspace"), "operator", null).path("activity")) {
+    for (JsonNode event : success(get("/api/v1/workspace"), null).path("activity")) {
       if (event.path("itemId").asLong(-1) == itemId) count++;
     }
     return count;
   }
 
   private JsonNode findAgent(String id) throws Exception {
-    for (JsonNode agent : success(get("/api/v1/agents"), "operator", null)) {
+    for (JsonNode agent : success(get("/api/v1/agents"), null)) {
       if (agent.path("id").asText().equals(id)) return agent;
     }
     throw new AssertionError("Registered agent was not listed: " + id);
@@ -587,7 +554,6 @@ class CoordinationIntegrationTest {
   private JsonNode mcp(String method, Map<String, Object> params) throws Exception {
     return success(
         post("/mcp"),
-        "operator",
         payload(
             "jsonrpc",
             "2.0",
@@ -599,20 +565,14 @@ class CoordinationIntegrationTest {
             params));
   }
 
-  private JsonNode success(
-      MockHttpServletRequestBuilder request, String principal, Map<String, Object> body)
+  private JsonNode success(MockHttpServletRequestBuilder request, Map<String, Object> body)
       throws Exception {
-    MvcResult result =
-        perform(request, principal, body).andExpect(status().is2xxSuccessful()).andReturn();
+    MvcResult result = perform(request, body).andExpect(status().is2xxSuccessful()).andReturn();
     return mapper.readTree(result.getResponse().getContentAsString());
   }
 
-  private ResultActions perform(
-      MockHttpServletRequestBuilder request, String principal, Map<String, Object> body)
+  private ResultActions perform(MockHttpServletRequestBuilder request, Map<String, Object> body)
       throws Exception {
-    String password =
-        principal.equals("operator") ? "test-operator-password" : "test-agent-password";
-    request.with(httpBasic(principal, password));
     if (body != null)
       request.contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(body));
     return mvc.perform(request);

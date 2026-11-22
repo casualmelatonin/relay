@@ -78,8 +78,9 @@ public class CoordinationService {
   public WorkspaceSnapshot snapshot() {
     List<WorkItem> work = items.findAllByOrderByIdAsc();
     Instant now = clock.instant();
+    Map<Long, WorkItem> indexed = index(work);
     return new WorkspaceSnapshot(
-        work.stream().map(this::dto).toList(),
+        work.stream().map(item -> dto(item, indexed::get)).toList(),
         agents.findAllByOrderByNameAsc().stream().map(a -> dto(a, work, now)).toList(),
         activity.findTop200ByOrderByCreatedAtDescIdDesc().stream().map(this::dto).toList());
   }
@@ -89,7 +90,7 @@ public class CoordinationService {
     return dto(items.findById(id).orElseThrow(() -> missing("Work item not found.")));
   }
 
-  public AgentDto registerAgent(RegisterAgentRequest request, String actor, boolean admin) {
+  public AgentDto registerAgent(RegisterAgentRequest request, String actor) {
     lock();
     actor = actor(actor);
     require(request != null, "A registration request is required.");
@@ -97,8 +98,6 @@ public class CoordinationService {
     String role = text(request.role(), "Role", 160, true);
     String subject =
         request.subject() == null ? actor : text(request.subject(), "Subject", 200, true);
-    if (!admin && !subject.equals(actor))
-      throw forbidden("Register an agent for your own authenticated subject.");
     if (agents.count() >= MAX_AGENTS)
       throw invalid("agent_limit", "This workspace supports up to 500 agent profiles.");
     if (agents.existsByNormalizedName(name.toLowerCase(Locale.ROOT))) {
@@ -113,10 +112,6 @@ public class CoordinationService {
   }
 
   public WorkItemDto create(CreateItemRequest request, String actor) {
-    return create(request, actor, false);
-  }
-
-  public WorkItemDto create(CreateItemRequest request, String actor, boolean admin) {
     lock();
     actor = actor(actor);
     require(request != null, "A creation request is required.");
@@ -125,8 +120,7 @@ public class CoordinationService {
     Map<Long, WorkItem> graph = graph();
     if (graph.size() >= MAX_ITEMS)
       throw invalid("item_limit", "This workspace supports up to 2,000 work items.");
-    if (request.assigneeId() != null)
-      authorizeAssignment(null, agent(request.assigneeId()), actor, admin);
+    if (request.assigneeId() != null) agent(request.assigneeId());
     Set<Long> dependencies = dependencies(request.dependencies());
     dependencies.forEach(id -> item(graph, id));
     WorkItem created =
@@ -141,6 +135,13 @@ public class CoordinationService {
             labels(request.labels()),
             dependencies,
             clock.instant());
+    require(
+        request.keyPrefix() == null
+            || request.keyPrefix().isBlank()
+            || request.type() == ItemType.INITIATIVE,
+        "Ticket prefixes can only be set on projects; child work inherits its project prefix.");
+    if (request.type() == ItemType.INITIATIVE)
+      created.setKeyPrefix(WorkItemKeys.normalize(request.keyPrefix()));
     completionPolicy.validateParent(created, graph);
     items.saveAndFlush(created);
     graph.put(created.getId(), created);
@@ -153,7 +154,7 @@ public class CoordinationService {
     return dto(created);
   }
 
-  public WorkItemDto update(long id, UpdateItemRequest request, String actor, boolean admin) {
+  public WorkItemDto update(long id, UpdateItemRequest request, String actor) {
     lock();
     actor = actor(actor);
     require(request != null, "An update request is required.");
@@ -175,26 +176,12 @@ public class CoordinationService {
     if (assignmentChanged) {
       if (current.hasActiveClaim(now))
         throw conflict("active_claim", "Release the active claim before reassigning work.");
-      AgentProfile previous =
-          current.getAssigneeId() == null ? null : agent(current.getAssigneeId());
-      AgentProfile next = nextAssignee == null ? null : agent(nextAssignee);
-      if (!admin && previous != null && !previous.getSubject().equals(actor)) {
-        throw forbidden("Only an administrator can reassign another subject’s work.");
-      }
-      authorizeAssignment(previous, next, actor, admin);
+      if (nextAssignee != null) agent(nextAssignee);
     }
-    boolean executionWrite =
-        executable(current)
-            && (request.output() != null
-                || request.status() == WorkStatus.IN_PROGRESS
-                || request.status() == WorkStatus.REVIEW
-                || request.status() == WorkStatus.DONE);
-    if (!admin
-        && (current.hasActiveClaim(now)
-            || executionWrite
-            || request.agentId() != null
-            || request.claimToken() != null)) {
-      validateProof(current, request.agentId(), request.claimToken(), actor, now, true);
+    if (current.getClaimToken() != null
+        || request.agentId() != null
+        || request.claimToken() != null) {
+      validateProof(current, request.agentId(), request.claimToken(), now, true);
     }
     // Resolve and validate text before touching managed entities: invalid requests roll back
     // cleanly.
@@ -214,6 +201,12 @@ public class CoordinationService {
     if (nextDependencies != null) nextDependencies.forEach(dependency -> item(graph, dependency));
     if (request.parentId() != null) positiveOrNull(request.parentId());
 
+    if (request.keyPrefix() != null) {
+      require(
+          current.getType() == ItemType.INITIATIVE,
+          "Ticket prefixes can only be set on projects; child work inherits its project prefix.");
+      current.setKeyPrefix(WorkItemKeys.normalize(request.keyPrefix()));
+    }
     if (title != null) current.setTitle(title);
     if (description != null) current.setDescription(description);
     if (acceptance != null) current.setAcceptance(acceptance);
@@ -236,7 +229,7 @@ public class CoordinationService {
     return dto(current);
   }
 
-  public WorkItemDto claim(long id, ClaimRequest request, String actor, boolean admin) {
+  public WorkItemDto claim(long id, ClaimRequest request, String actor) {
     lock();
     actor = actor(actor);
     require(
@@ -245,7 +238,6 @@ public class CoordinationService {
     WorkItem current = item(graph, id);
     checkVersion(current, request.version());
     AgentProfile profile = agent(request.agentId());
-    authorizeProfile(profile, actor, admin);
     Instant now = clock.instant();
     require(executable(current), "Only a story or task can hold an execution claim.");
     if (current.getStatus() != WorkStatus.READY && current.getStatus() != WorkStatus.IN_PROGRESS) {
@@ -274,7 +266,7 @@ public class CoordinationService {
     return dto(current);
   }
 
-  public WorkItemDto release(long id, ReleaseRequest request, String actor, boolean admin) {
+  public WorkItemDto release(long id, ReleaseRequest request, String actor) {
     lock();
     actor = actor(actor);
     require(
@@ -282,11 +274,10 @@ public class CoordinationService {
     WorkItem current = items.findById(id).orElseThrow(() -> missing("Work item not found."));
     checkVersion(current, request.version());
     AgentProfile profile = agent(request.agentId());
-    authorizeProfile(profile, actor, admin);
     if (!profile.getId().equals(current.getClaimantId()))
       throw conflict("claim_mismatch", "This agent does not hold the claim.");
     Instant now = clock.instant();
-    if (!admin) validateProof(current, profile.getId(), request.claimToken(), actor, now, false);
+    validateProof(current, profile.getId(), request.claimToken(), now, false);
     current.clearClaim();
     if (current.getStatus() == WorkStatus.IN_PROGRESS) current.setStatus(WorkStatus.READY);
     current.touch(now);
@@ -295,14 +286,13 @@ public class CoordinationService {
     return dto(current);
   }
 
-  public AgentDto heartbeat(UUID agentId, HeartbeatRequest request, String actor, boolean admin) {
+  public AgentDto heartbeat(UUID agentId, HeartbeatRequest request, String actor) {
     lock();
     actor = actor(actor);
     require(
         request != null && request.claims() != null && request.claims().size() <= MAX_AGENT_CLAIMS,
         "Supply up to 100 claim proofs, or an empty claims list for presence only.");
     AgentProfile profile = agent(agentId);
-    authorizeProfile(profile, actor, admin);
     Map<Long, WorkItem> graph = graph();
     Instant now = clock.instant();
     Set<Long> seen = new HashSet<>();
@@ -313,7 +303,7 @@ public class CoordinationService {
           "Every claim proof needs an item ID and claim token.");
       require(seen.add(proof.itemId()), "Do not repeat an item in a heartbeat.");
       WorkItem current = item(graph, proof.itemId());
-      // Tokens are mandatory even for administrative heartbeats: never revive an expired worker.
+      // Tokens identify a current execution lease: never revive an expired worker.
       if (!profile.getId().equals(current.getClaimantId())
           || !proof.claimToken().equals(current.getClaimToken())
           || !current.hasActiveClaim(now)) {
@@ -370,12 +360,7 @@ public class CoordinationService {
   }
 
   private void validateProof(
-      WorkItem current,
-      UUID agentId,
-      UUID token,
-      String actor,
-      Instant now,
-      boolean requireActive) {
+      WorkItem current, UUID agentId, UUID token, Instant now, boolean requireActive) {
     if (agentId == null
         || token == null
         || !agentId.equals(current.getClaimantId())
@@ -383,24 +368,9 @@ public class CoordinationService {
       throw conflict(
           "claim_proof_required", "Supply the current claimant agent ID and claim token.");
     }
-    authorizeProfile(agent(agentId), actor, false);
     if (requireActive && !current.hasActiveClaim(now))
       throw conflict(
           "stale_claim", "The execution claim expired. Reacquire work before writing progress.");
-  }
-
-  private void authorizeProfile(AgentProfile profile, String actor, boolean admin) {
-    if (!admin && !profile.getSubject().equals(actor))
-      throw forbidden("This agent belongs to another authenticated subject.");
-  }
-
-  private void authorizeAssignment(
-      AgentProfile previous, AgentProfile next, String actor, boolean admin) {
-    if (!admin
-        && ((previous != null && !previous.getSubject().equals(actor))
-            || (next != null && !next.getSubject().equals(actor)))) {
-      throw forbidden("Only an administrator can assign or reassign work for another subject.");
-    }
   }
 
   private AgentProfile agent(UUID id) {
@@ -428,10 +398,20 @@ public class CoordinationService {
     return activity.save(new ActivityEvent(itemId, actor, message, now));
   }
 
+  private Map<Long, WorkItem> index(List<WorkItem> work) {
+    Map<Long, WorkItem> indexed = new LinkedHashMap<>();
+    work.forEach(item -> indexed.put(item.getId(), item));
+    return indexed;
+  }
+
   private WorkItemDto dto(WorkItem item) {
+    return dto(item, id -> items.findById(id).orElse(null));
+  }
+
+  private WorkItemDto dto(WorkItem item, java.util.function.Function<Long, WorkItem> lookup) {
     return new WorkItemDto(
         item.getId(),
-        "RLY-" + item.getId(),
+        WorkItemKeys.key(item, lookup),
         item.getTitle(),
         item.getType(),
         item.getParentId(),
@@ -448,7 +428,8 @@ public class CoordinationService {
         item.getDependencies().stream().sorted().toList(),
         item.getVersion(),
         item.getCreatedAt(),
-        item.getUpdatedAt());
+        item.getUpdatedAt(),
+        WorkItemKeys.prefix(item, lookup));
   }
 
   private AgentDto dto(AgentProfile agent, List<WorkItem> work, Instant now) {
@@ -483,7 +464,7 @@ public class CoordinationService {
   }
 
   private String actor(String actor) {
-    return text(actor, "Authenticated subject", 200, true);
+    return text(actor, "Activity actor", 200, true);
   }
 
   private String orEmpty(String text) {
@@ -535,10 +516,6 @@ public class CoordinationService {
 
   private DomainException missing(String message) {
     return new DomainException(404, "not_found", message);
-  }
-
-  private DomainException forbidden(String message) {
-    return new DomainException(403, "forbidden", message);
   }
 
   private DomainException conflict(String code, String message) {

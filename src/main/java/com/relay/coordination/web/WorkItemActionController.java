@@ -7,7 +7,6 @@ import com.relay.coordination.domain.WorkStatus;
 import com.relay.coordination.service.CoordinationService;
 import java.util.*;
 import java.util.stream.Collectors;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -24,8 +23,7 @@ public final class WorkItemActionController {
   }
 
   @PostMapping("/ui/items")
-  public String create(
-      @RequestParam Map<String, String> form, Authentication auth, RedirectAttributes redirect) {
+  public String create(@RequestParam Map<String, String> form, RedirectAttributes redirect) {
     try {
       WorkItemDto item =
           service.create(
@@ -38,9 +36,9 @@ public final class WorkItemActionController {
                   text(form, "description"),
                   text(form, "acceptance"),
                   labels(form.get("labels")),
-                  ids(form.get("dependencies"))),
-              auth.getName(),
-              admin(auth));
+                  ids(form.get("dependencies")),
+                  form.get("keyPrefix")),
+              "workspace");
       redirect.addFlashAttribute(
           "success", item.key() + " created in the backlog. Assign an owner when you are ready.");
       return "redirect:/items/" + item.id();
@@ -53,10 +51,7 @@ public final class WorkItemActionController {
 
   @PostMapping("/ui/items/{id}/update")
   public String update(
-      @PathVariable long id,
-      @RequestParam Map<String, String> form,
-      Authentication auth,
-      RedirectAttributes redirect) {
+      @PathVariable long id, @RequestParam Map<String, String> form, RedirectAttributes redirect) {
     try {
       service.update(
           id,
@@ -75,9 +70,9 @@ public final class WorkItemActionController {
               labels(form.get("labels")),
               ids(form.get("dependencies")),
               uuidOrNull(form.get("agentId")),
-              uuidOrNull(form.get("claimToken"))),
-          auth.getName(),
-          admin(auth));
+              uuidOrNull(form.get("claimToken")),
+              form.get("keyPrefix")),
+          "workspace");
       redirect.addFlashAttribute("success", "Changes saved.");
     } catch (RuntimeException ex) {
       redirect.addFlashAttribute(
@@ -94,10 +89,9 @@ public final class WorkItemActionController {
       @PathVariable long id,
       @RequestParam UUID agentId,
       @RequestParam long version,
-      Authentication auth,
       RedirectAttributes redirect) {
     try {
-      service.claim(id, new ClaimRequest(agentId, version), auth.getName(), admin(auth));
+      service.claim(id, new ClaimRequest(agentId, version), "workspace");
       redirect.addFlashAttribute("success", "Execution claim acquired for 15 minutes.");
     } catch (RuntimeException ex) {
       redirect.addFlashAttribute("error", message(ex));
@@ -111,11 +105,9 @@ public final class WorkItemActionController {
       @RequestParam UUID agentId,
       @RequestParam long version,
       @RequestParam UUID claimToken,
-      Authentication auth,
       RedirectAttributes redirect) {
     try {
-      service.release(
-          id, new ReleaseRequest(agentId, version, claimToken), auth.getName(), admin(auth));
+      service.release(id, new ReleaseRequest(agentId, version, claimToken), "workspace");
       redirect.addFlashAttribute("success", "Claim released. The task is available for a handoff.");
     } catch (RuntimeException ex) {
       redirect.addFlashAttribute("error", message(ex));
@@ -125,24 +117,17 @@ public final class WorkItemActionController {
 
   @PostMapping("/ui/items/{id}/comments")
   public String comment(
-      @PathVariable long id,
-      @RequestParam String body,
-      Authentication auth,
-      RedirectAttributes redirect) {
+      @PathVariable long id, @RequestParam String body, RedirectAttributes redirect) {
     try {
       if (body == null || body.isBlank())
         throw new IllegalArgumentException("Write a comment before posting.");
-      service.comment(id, new CommentRequest(body), auth.getName());
+      service.comment(id, new CommentRequest(body), "workspace");
       redirect.addFlashAttribute("success", "Comment added to the shared history.");
     } catch (RuntimeException ex) {
       redirect.addFlashAttribute("error", message(ex));
       redirect.addFlashAttribute("commentBody", body);
     }
     return "redirect:/items/" + id;
-  }
-
-  private boolean admin(Authentication auth) {
-    return auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
   }
 
   private String validType(String type) {

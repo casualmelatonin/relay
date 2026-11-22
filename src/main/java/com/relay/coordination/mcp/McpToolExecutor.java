@@ -1,7 +1,6 @@
 package com.relay.coordination.mcp;
 
 import com.fasterxml.jackson.databind.*;
-import com.relay.coordination.api.WorkspaceController;
 import com.relay.coordination.api.dto.*;
 import com.relay.coordination.chunk.ChunkGuideService;
 import com.relay.coordination.domain.*;
@@ -9,7 +8,6 @@ import com.relay.coordination.service.CoordinationService;
 import jakarta.validation.Validator;
 import java.time.Clock;
 import java.util.*;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
 /** Validates tool input and invokes the same application services used by REST and HTML. */
@@ -34,9 +32,8 @@ public final class McpToolExecutor {
     this.guides = guides;
   }
 
-  public Object execute(String name, JsonNode args, Authentication actor) {
-    boolean admin = WorkspaceController.isAdmin(actor);
-    String subject = actor.getName();
+  public Object execute(String name, JsonNode args) {
+    String subject = "workspace";
     return switch (name) {
       case "list_work" -> {
         var workspace = coordination.snapshot();
@@ -85,23 +82,20 @@ public final class McpToolExecutor {
                           || Long.valueOf(args.get("itemId").asLong()).equals(e.itemId()))
               .limit(Math.max(1, Math.min(200, args.path("limit").asInt(50))))
               .toList();
-      case "create_item" ->
-          coordination.create(convert(args, CreateItemRequest.class), subject, admin);
+      case "create_item" -> coordination.create(convert(args, CreateItemRequest.class), subject);
       case "update_item" ->
-          coordination.update(
-              id(args), convert(args, UpdateItemRequest.class, "id"), subject, admin);
+          coordination.update(id(args), convert(args, UpdateItemRequest.class, "id"), subject);
       case "register_agent" ->
-          coordination.registerAgent(convert(args, RegisterAgentRequest.class), subject, admin);
+          coordination.registerAgent(convert(args, RegisterAgentRequest.class), subject);
       case "claim_task" ->
-          coordination.claim(id(args), convert(args, ClaimRequest.class, "id"), subject, admin);
+          coordination.claim(id(args), convert(args, ClaimRequest.class, "id"), subject);
       case "release_task" ->
-          coordination.release(id(args), convert(args, ReleaseRequest.class, "id"), subject, admin);
+          coordination.release(id(args), convert(args, ReleaseRequest.class, "id"), subject);
       case "heartbeat" ->
           coordination.heartbeat(
               UUID.fromString(args.path("agentId").asText()),
               convert(args, HeartbeatRequest.class, "agentId"),
-              subject,
-              admin);
+              subject);
       case "add_comment" ->
           coordination.comment(id(args), convert(args, CommentRequest.class, "id"), subject);
       default -> throw new DomainException(404, "unknown_tool", "Unknown tool.");

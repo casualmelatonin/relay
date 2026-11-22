@@ -1,7 +1,6 @@
 package com.relay.coordination;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -25,7 +24,7 @@ class ChunkLearningTest {
 
   @Test
   void rendersTheProjectFirstWorkflowAndChunkGuide() throws Exception {
-    mvc.perform(get("/").with(user("operator").roles("ADMIN")))
+    mvc.perform(get("/"))
         .andExpect(status().isOk())
         .andExpect(
             content()
@@ -37,11 +36,9 @@ class ChunkLearningTest {
             content().string(org.hamcrest.Matchers.containsString("Understand &amp; build")));
     for (String view :
         new String[] {"tasks", "board", "initiatives", "agents", "activity", "tools"})
-      mvc.perform(get("/").param("view", view).with(user("operator").roles("ADMIN")))
-          .andExpect(status().isOk());
-    mvc.perform(get("/items/new").with(user("operator").roles("ADMIN"))).andExpect(status().isOk());
-    mvc.perform(get("/agents/new").with(user("operator").roles("ADMIN")))
-        .andExpect(status().isOk());
+      mvc.perform(get("/").param("view", view)).andExpect(status().isOk());
+    mvc.perform(get("/items/new")).andExpect(status().isOk());
+    mvc.perform(get("/agents/new")).andExpect(status().isOk());
   }
 
   @Test
@@ -49,7 +46,6 @@ class ChunkLearningTest {
     var created =
         mvc.perform(
                 post("/api/v1/items")
-                    .with(httpBasic("operator", "test-operator-password"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         mapper.writeValueAsString(
@@ -73,7 +69,6 @@ class ChunkLearningTest {
     var saved =
         mvc.perform(
                 put("/api/v1/items/" + id + "/guide")
-                    .with(httpBasic("operator", "test-operator-password"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(mapper.writeValueAsString(body)))
             .andExpect(status().isOk())
@@ -83,11 +78,10 @@ class ChunkLearningTest {
         mapper.readTree(saved.getResponse().getContentAsString()).get("learningGoal").asText());
     mvc.perform(
             put("/api/v1/items/" + id + "/guide")
-                .with(httpBasic("operator", "test-operator-password"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(body)))
         .andExpect(status().isConflict());
-    mvc.perform(get("/items/" + id).with(user("operator").roles("ADMIN")))
+    mvc.perform(get("/items/" + id))
         .andExpect(status().isOk())
         .andExpect(
             content()
@@ -97,7 +91,15 @@ class ChunkLearningTest {
         .andExpect(
             content()
                 .string(org.hamcrest.Matchers.containsString("Understand constructor injection.")));
-    mvc.perform(post("/ui/items/" + id + "/guide").with(user("operator").roles("ADMIN")))
-        .andExpect(status().isForbidden());
+    mvc.perform(
+            post("/ui/items/" + id + "/guide")
+                .param("version", "0")
+                .param("purpose", "A browser edit without signing in")
+                .param("learningGoal", "Review a focused change")
+                .param("steps", "Read and verify")
+                .param("reflection", "Reviewed"))
+        .andExpect(status().is3xxRedirection());
+    mvc.perform(get("/api/v1/items/" + id + "/guide"))
+        .andExpect(jsonPath("$.purpose").value("A browser edit without signing in"));
   }
 }

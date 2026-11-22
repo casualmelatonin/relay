@@ -5,7 +5,6 @@ import com.relay.coordination.domain.ItemType;
 import com.relay.coordination.service.CoordinationService;
 import java.util.*;
 import java.util.stream.Collectors;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -22,17 +21,15 @@ public final class AgentActionController {
   }
 
   @PostMapping("/ui/agents")
-  public String register(
-      @RequestParam Map<String, String> form, Authentication auth, RedirectAttributes redirect) {
+  public String register(@RequestParam Map<String, String> form, RedirectAttributes redirect) {
     try {
       service.registerAgent(
           new RegisterAgentRequest(
               required(form, "name", 80),
               required(form, "role", 160),
-              text(form, "subject").isBlank() ? auth.getName() : required(form, "subject", 200),
+              text(form, "subject").isBlank() ? "workspace" : required(form, "subject", 200),
               ui.safeColor(form.get("color"))),
-          auth.getName(),
-          admin(auth));
+          "workspace");
       redirect.addFlashAttribute(
           "success", "Agent identity registered. Connect its own runtime to start working.");
       return "redirect:/?view=agents";
@@ -44,23 +41,19 @@ public final class AgentActionController {
   }
 
   @PostMapping("/ui/agents/{id}/heartbeat")
-  public String heartbeat(@PathVariable UUID id, Authentication auth, RedirectAttributes redirect) {
+  public String heartbeat(@PathVariable UUID id, RedirectAttributes redirect) {
     try {
       List<ClaimProof> proofs =
           service.snapshot().items().stream()
               .filter(i -> id.equals(i.claimantId()) && ui.leased(i))
               .map(i -> new ClaimProof(i.id(), i.claimToken()))
               .toList();
-      service.heartbeat(id, new HeartbeatRequest(proofs), auth.getName(), admin(auth));
+      service.heartbeat(id, new HeartbeatRequest(proofs), "workspace");
       redirect.addFlashAttribute("success", "Heartbeat recorded and active claims renewed.");
     } catch (RuntimeException ex) {
       redirect.addFlashAttribute("error", message(ex));
     }
     return "redirect:/?view=agents";
-  }
-
-  private boolean admin(Authentication auth) {
-    return auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
   }
 
   private String validType(String type) {

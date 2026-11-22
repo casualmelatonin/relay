@@ -123,10 +123,6 @@ public final class ViewSupport {
     return value != null && value.matches("#[a-fA-F0-9]{6}") ? value : "#8b7ca6";
   }
 
-  public boolean owns(AgentDto agent, String actor, boolean admin) {
-    return admin || agent.subject().equals(actor);
-  }
-
   public String value(Map<String, String> form, String key, Object fallback) {
     return form != null && form.containsKey(key)
         ? form.get(key)

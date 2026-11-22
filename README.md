@@ -14,12 +14,7 @@ Requirements: Java 21 or 25. Maven 3.9.11 is provided by the wrapper. No Node in
 
 Open http://localhost:8080. The development profile binds to loopback and uses an H2 database in `data/`. Example projects, profiles, and learning guides are created on the first launch of an empty database.
 
-Local browser login:
-
-- Username: `operator`
-- Password: `local-only-change-me`
-
-The separate local API identity is `agent` / `local-agent-change-me`. Override these development values with `RELAY_OPERATOR_PASSWORD` and `RELAY_AGENT_PASSWORD`. Production uses your OIDC provider and does not enable these local accounts.
+The UI, REST API, and MCP endpoint open directly without accounts, passwords, or authentication headers. All clients share the same workspace.
 
 ```sh
 ./mvnw verify
@@ -42,6 +37,12 @@ The preview used during development may run on port 5173; `--server.port=5173` s
 
 Projects, milestones, stories, and chunks map to stable API enum values `INITIATIVE`, `EPIC`, `STORY`, and `TASK`. Existing agent tooling can use those values.
 
+## Project ticket prefixes
+
+Set **Ticket prefix** when creating or editing a project (for example, `HTTP`). Milestones and chunks inherit the project prefix, producing identifiers such as `HTTP-18`. Prefixes accept 2–12 letters/digits starting with a letter and are normalized to uppercase; blank uses `RLY`. Existing projects and standalone work retain `RLY` until configured. Numeric IDs, URLs, dependencies and learning guides are unchanged. Reparented work inherits its new project’s prefix. Historical activity text is not rewritten.
+
+REST and MCP create/update requests accept optional `keyPrefix` on `INITIATIVE` items; read responses include the effective prefix. Omit it on child work and when preserving the existing setting.
+
 ## Code map
 
 | Module | Responsibility |
@@ -53,7 +54,7 @@ Projects, milestones, stories, and chunks map to stable API enum values `INITIAT
 | `persistence` | JPA entities and Spring Data repositories |
 | `api` | Versioned REST endpoints, validated request records, and Problem Details |
 | `mcp` | Stateless JSON-RPC transport, tool schemas, and a separate tool executor |
-| `security` | Local/production authentication, authorization, browser-origin checks, and request correlation |
+| `security` | Browser-origin checks, response headers, and request correlation |
 | `config` | Clock and development-only example data |
 | `templates/workspace` | One template per feature, plus shared layout and learning guide fragments |
 | `static/css` | Design tokens, shell, reusable components, and feature layouts |
@@ -62,7 +63,7 @@ See [architecture](docs/architecture.md), [API and agent guide](docs/agents.md),
 
 ## Verification and current boundaries
 
-Integration tests exercise real Spring MVC, security, Flyway, JPA, graph validation, optimistic versions, claim races, leases, MCP tools, page rendering, and learning guide edits. A PostgreSQL Testcontainers migration test runs when Docker is available; it is skipped when Docker is unavailable. H2 verification does not replace PostgreSQL validation in deployment CI.
+Integration tests exercise real Spring MVC, Flyway, JPA, graph validation, optimistic versions, claim races, leases, MCP tools, page rendering, and learning guide edits. A PostgreSQL Testcontainers migration test runs when Docker is available; it is skipped when Docker is unavailable. H2 verification does not replace PostgreSQL validation in deployment CI.
 
 This is a single shared workspace, bounded to 2,000 work items and 500 registered agent profiles. Mutations acquire a database workspace lock so multiple app replicas cannot make conflicting graph or claim decisions. This deliberately favors understandable correctness over high-throughput multi-tenant scheduling. Activity is append-only at the application boundary; workspace snapshots expose the latest 200 events.
 

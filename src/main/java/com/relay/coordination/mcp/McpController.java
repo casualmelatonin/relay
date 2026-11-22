@@ -11,17 +11,14 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Stateless MCP JSON-RPC transport. Domain authorization is shared with the REST and UI paths. */
+/** Stateless MCP JSON-RPC transport. Coordination rules are shared with the REST and UI paths. */
 @RestController
 public class McpController {
   private static final Logger LOG = LoggerFactory.getLogger(McpController.class);
-  private static final Set<String> READ_TOOLS =
-      Set.of("list_work", "get_item", "get_chunk_guide", "list_agents", "get_activity");
   private final ObjectMapper mapper;
   private final McpToolExecutor executor;
 
@@ -31,7 +28,7 @@ public class McpController {
   }
 
   @PostMapping(value = "/mcp", consumes = "application/json", produces = "application/json")
-  public ResponseEntity<?> rpc(@RequestBody String raw, Authentication actor) {
+  public ResponseEntity<?> rpc(@RequestBody String raw) {
     if (raw.length() > 131072) return ResponseEntity.status(413).build();
     JsonNode request;
     try {
@@ -48,8 +45,7 @@ public class McpController {
     if (id == null) {
       return ResponseEntity.accepted().build();
     }
-    if (method.equals("tools/call")) return call(id, request.path("params"), actor);
-    if (!can(actor, false)) return error(id, -32003, "relay.read scope is required.");
+    if (method.equals("tools/call")) return call(id, request.path("params"));
     return switch (method) {
       case "server/discover" ->
           result(
@@ -75,7 +71,7 @@ public class McpController {
                 "serverInfo",
                 Map.of("name", "relay-coordination", "version", "1.0.0"),
                 "instructions",
-                "Register your authenticated agent profile. Inspect work, claim before execution, renew leases with claimToken, and leave output evidence before review/completion. Assignment never launches a process."));
+                "Register an agent profile. Inspect work, claim before execution, renew leases with claimToken, and leave output evidence before review/completion. Assignment never launches a process."));
       }
       case "ping" -> result(id, Map.of());
       case "tools/list" -> result(id, Map.of("tools", ToolCatalog.tools()));
@@ -83,16 +79,13 @@ public class McpController {
     };
   }
 
-  private ResponseEntity<?> call(JsonNode id, JsonNode params, Authentication actor) {
+  private ResponseEntity<?> call(JsonNode id, JsonNode params) {
     String name = params.path("name").asText();
     JsonNode args = params.path("arguments");
     if (args.isMissingNode()) args = mapper.createObjectNode();
     if (!args.isObject()) return error(id, -32602, "Tool arguments must be an object.");
-    if (!can(actor, !READ_TOOLS.contains(name)))
-      return result(
-          id, toolError("forbidden", "The required relay.read or relay.write scope is missing."));
     try {
-      Object response = executor.execute(name, args, actor);
+      Object response = executor.execute(name, args);
       return result(
           id,
           Map.of(
@@ -114,16 +107,6 @@ public class McpController {
           toolError(
               "internal_error", "The operation could not be completed. Retry with current state."));
     }
-  }
-
-  private boolean can(Authentication actor, boolean write) {
-    return actor != null
-        && actor.getAuthorities().stream()
-            .anyMatch(
-                a ->
-                    a.getAuthority().equals("ROLE_ADMIN")
-                        || a.getAuthority()
-                            .equals(write ? "SCOPE_relay.write" : "SCOPE_relay.read"));
   }
 
   private Map<String, Object> toolError(String code, String message) {

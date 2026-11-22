@@ -9,7 +9,6 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.ui.Model;
 
@@ -34,7 +33,6 @@ public final class WorkspaceViewFactory {
 
   public void populate(
       Model model,
-      Authentication auth,
       String view,
       String query,
       String type,
@@ -77,7 +75,6 @@ public final class WorkspaceViewFactory {
         items.stream()
             .filter(i -> i.parentId() != null)
             .collect(Collectors.groupingBy(WorkItemDto::parentId));
-    boolean admin = com.relay.coordination.api.WorkspaceController.isAdmin(auth);
     model.addAttribute("snapshot", snapshot);
     model.addAttribute("projectPlans", projectPlans.plans(items));
     model.addAttribute("items", items);
@@ -101,11 +98,7 @@ public final class WorkspaceViewFactory {
     model.addAttribute("types", ItemType.values());
     model.addAttribute("statuses", WorkStatus.values());
     model.addAttribute("priorities", Priority.values());
-    model.addAttribute("actor", auth.getName());
-    model.addAttribute("admin", admin);
-    model.addAttribute(
-        "claimAgents",
-        snapshot.agents().stream().filter(a -> ui.owns(a, auth.getName(), admin)).toList());
+    model.addAttribute("claimAgents", snapshot.agents());
     model.addAttribute("demoData", demoData);
   }
 }
