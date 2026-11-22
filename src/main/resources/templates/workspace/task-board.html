@@ -1,0 +1,5 @@
+<html xmlns:th="http://www.thymeleaf.org"><body><div th:fragment="board" class="board-scroll"><div class="board">
+<section th:each="column : ${columns}" class="board-column"><h3><i class="state-dot" th:classappend="${@ui.css(column.key)}"></i><span th:text="${@ui.label(column.key)}">Ready</span><span class="count" th:text="${column.value.size()}">0</span></h3>
+<a class="task-card" th:each="item : ${column.value}" th:href="@{/items/{id}(id=${item.id})}"><span class="card-top"><span class="task-key" th:text="${item.key}">RLY-1</span><span class="priority" th:text="${@ui.label(item.priority)}">Medium</span></span><strong th:text="${item.title}">Task</strong><p class="blocker-text" th:if="${!@ui.blockers(item,itemsById).isEmpty()}" th:text="${'Waiting on ' + @ui.blockers(item,itemsById).get(0).key}"></p><div class="card-footer"><span class="owner"><span class="avatar small" th:text="${@ui.agentInitials(item.assigneeId,agentsById)}">AT</span><span th:text="${@ui.agentName(item.assigneeId,agentsById)}">Owner</span></span><span>↗</span></div></a>
+<p class="empty-column" th:if="${column.value.isEmpty()}">No tasks</p></section>
+</div></div></body></html>

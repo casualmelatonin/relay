@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:relay-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ''
+relay:
+  demo-data: false
+  security:
+    operator-password: test-operator-password
+    agent-password: test-agent-password

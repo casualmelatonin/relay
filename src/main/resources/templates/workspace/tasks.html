@@ -1,0 +1,21 @@
+<html xmlns:th="http://www.thymeleaf.org"><body><section th:fragment="tasks">
+<header class="page-heading"><div><div class="eyebrow">TEAM WORKSPACE</div><h1>All chunks</h1><p>Small pieces of work across your projects. Open a chunk to understand, build, and review it.</p></div><a th:if="${admin}" class="button primary" th:href="@{/items/new}"><svg class="icon"><use href="#plus"/></svg>New chunk</a></header>
+<div class="summary-grid" aria-label="Task summary">
+<a class="summary-card" th:href="@{/(view='tasks',status='READY')}"><span><i class="state-dot ready"></i>Ready to start</span><strong th:text="${@ui.count(items,'READY')}">0</strong><small>A focused next step</small></a>
+<a class="summary-card" th:href="@{/(view='tasks',status='IN_PROGRESS')}"><span><i class="state-dot in_progress"></i>In progress</span><strong th:text="${@ui.count(items,'IN_PROGRESS')}">0</strong><small>Build and understand it</small></a>
+<a class="summary-card attention" th:href="@{/(view='tasks',status='BLOCKED')}"><span><i class="state-dot blocked"></i>Blocked</span><strong th:text="${@ui.count(items,'BLOCKED')}">0</strong><small>Needs a decision or prerequisite</small></a>
+<a class="summary-card" th:href="@{/(view='tasks',status='DONE')}"><span><i class="state-dot done"></i>Completed</span><strong th:text="${@ui.count(items,'DONE')}">0</strong><small>Reviewed with a result</small></a>
+</div>
+<section class="panel task-panel">
+<div class="panel-heading"><div><h2 th:text="${statusFilter.isEmpty() ? 'All chunks' : @ui.label(statusFilter) + ' chunks'}">All chunks</h2><span class="count" th:text="${filtered.size()}">0</span></div><div class="view-switch" aria-label="Task layout"><a th:href="@{/(view='tasks',q=${query},type=${typeFilter},agent=${agentFilter},status=${statusFilter},priority=${priorityFilter})}" th:classappend="${view == 'tasks'} ? 'selected'"><svg class="icon"><use href="#list"/></svg>List</a><a th:href="@{/(view='board',q=${query},type=${typeFilter},agent=${agentFilter},status=${statusFilter},priority=${priorityFilter})}" th:classappend="${view == 'board'} ? 'selected'"><svg class="icon"><use href="#board"/></svg>Board</a></div></div>
+<form class="filter-bar" method="get" th:action="@{/}"><input type="hidden" name="view" th:value="${view}">
+<label class="search-field"><svg class="icon"><use href="#search"/></svg><input type="search" name="q" th:value="${query}" placeholder="Search by title or ID" aria-label="Search tasks"></label>
+<label class="filter-field"><span>Status</span><select name="status"><option value="">All statuses</option><option th:each="state : ${statuses}" th:value="${state}" th:text="${@ui.label(state)}" th:selected="${state.name() == statusFilter}"></option></select></label>
+<label class="filter-field"><span>Owner</span><select name="agent"><option value="">Anyone</option><option value="unassigned" th:selected="${agentFilter == 'unassigned'}">Unassigned</option><option th:each="agent : ${agents}" th:value="${agent.id}" th:text="${agent.name}" th:selected="${agent.id.toString() == agentFilter}"></option></select></label>
+<button class="button secondary small" type="submit">Apply filters</button><a class="text-link" th:href="@{/(view=${view})}" th:if="${!query.isBlank() or !statusFilter.isBlank() or !agentFilter.isBlank()}">Reset</a>
+</form>
+<th:block th:if="${view == 'tasks'}"><div th:replace="~{workspace/task-list :: taskList}"></div></th:block>
+<th:block th:if="${view == 'board'}"><div th:replace="~{workspace/task-board :: board}"></div></th:block>
+</section>
+<div class="workflow-hint"><svg class="icon"><use href="#workflow"/></svg><p><strong>The chunk workflow:</strong> understand the goal → plan a small change → build it with AI → verify and record what you learned.</p><a th:href="@{/(view='tools')}">How agents connect ↗</a></div>
+</section></body></html>

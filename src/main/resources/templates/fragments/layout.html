@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="layout(pageContent)">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light"><title>Relay — Agent workspace</title>
+  <link rel="icon" th:href="@{/favicon.svg}"><link rel="stylesheet" th:href="@{/relay.css}">
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon-library" aria-hidden="true"><defs>
+<symbol id="workflow" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="6" rx="1.5"/><rect x="14" y="15" width="7" height="6" rx="1.5"/><path d="M6.5 9v8a1 1 0 0 0 1 1H14M10 6h6.5a1 1 0 0 1 1 1v8"/></symbol>
+<symbol id="board" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16M5.5 8h1M11.5 8h1M17.5 8h1M5.5 11h1M11.5 11h1"/></symbol>
+<symbol id="layers" viewBox="0 0 24 24"><path d="m12 3 10 5-10 5L2 8l10-5ZM2 12l10 5 10-5M2 16l10 5 10-5"/></symbol>
+<symbol id="target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+<symbol id="bot" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="3"/><path d="M12 3v3M2 11v5M22 11v5M8 16h8M8 11h.01M16 11h.01"/></symbol>
+<symbol id="activity" viewBox="0 0 24 24"><path d="M2 12h5l3-8 4 16 3-8h5"/></symbol>
+<symbol id="code" viewBox="0 0 24 24"><path d="m8 5-6 7 6 7M16 5l6 7-6 7M14 3l-4 18"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+<symbol id="filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+<symbol id="checklist" viewBox="0 0 24 24"><path d="m3 7 2 2 3-4m3 2h10M3 16l2 2 3-4m3 2h10"/></symbol>
+<symbol id="book" viewBox="0 0 24 24"><path d="M3 4h6a3 3 0 0 1 3 3v14a4 4 0 0 0-4-3H3V4Zm18 0h-6a3 3 0 0 0-3 3v14a4 4 0 0 1 4-3h5V4Z"/></symbol>
+<symbol id="zap" viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-12h-7V2Z"/></symbol>
+<symbol id="branch" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M6 7v10M18 7v2a6 6 0 0 1-6 6H6"/></symbol>
+<symbol id="shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Z"/><path d="m8 12 3 3 5-6"/></symbol>
+<symbol id="list" viewBox="0 0 24 24"><path d="M8 5h13M8 12h13M8 19h13M3 5h.01M3 12h.01M3 19h.01"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="comment" viewBox="0 0 24 24"><path d="M21 11a8 8 0 0 1-8 8H7l-5 3 2-7a8 8 0 1 1 17-4Z"/></symbol>
+<symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+<symbol id="warning" viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3ZM12 9v5M12 17h.01"/></symbol>
+<symbol id="logout" viewBox="0 0 24 24"><path d="M9 3H4v18h5M12 12h10m-5-5 5 5-5 5"/></symbol>
+<symbol id="chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h17M9 16v-5M14 16V7M19 16V4"/></symbol>
+</defs></svg>
+<aside class="sidebar">
+  <a class="brand" th:href="@{/}"><span class="brand-mark"><svg class="icon"><use href="#workflow"/></svg></span>Relay<span class="brand-tag">WORKSPACE</span></a>
+  <div class="workspace-name"><span class="workspace-avatar">AC</span><div><strong>Agent coordination</strong><small>Build in understandable chunks</small></div></div>
+  <div class="nav-label">WORKSPACE</div>
+  <nav aria-label="Main navigation">
+<a th:href="@{/}" th:classappend="${view == 'projects' or view == 'initiatives'} ? 'active'"><svg class="icon"><use href="#target"/></svg>Projects</a>
+    <a th:href="@{/(view='tasks')}" th:classappend="${view == 'tasks' or view == 'board'} ? 'active'"><svg class="icon"><use href="#checklist"/></svg>All chunks<span class="nav-count" th:text="${@ui.totalWork(items)}">0</span></a>
+
+    <a th:href="@{/(view='agents')}" th:classappend="${view == 'agents'} ? 'active'"><svg class="icon"><use href="#bot"/></svg>Agents<span class="nav-count" th:text="${agents.size()}">0</span></a>
+    <a th:href="@{/(view='activity')}" th:classappend="${view == 'activity'} ? 'active'"><svg class="icon"><use href="#activity"/></svg>Activity</a>
+  </nav>
+  <div class="sidebar-bottom">
+    <a class="connection-link" th:href="@{/(view='tools')}" th:classappend="${view == 'tools'} ? 'active'"><svg class="icon"><use href="#code"/></svg><span>Connect your agents<small>MCP and API guide</small></span><span>↗</span></a>
+    <div class="profile"><span class="avatar" th:text="${@ui.initials(actor)}">OP</span><div><strong th:text="${actor}">operator</strong><small th:text="${admin ? 'Administrator' : 'Member'}">Administrator</small></div><form method="post" th:action="@{/logout}"><button class="icon-button" aria-label="Sign out"><svg class="icon"><use href="#logout"/></svg></button></form></div>
+  </div>
+</aside>
+<main class="main" id="main-content">
+  <header class="topbar"><div class="breadcrumbs">Workspace <span>/</span><strong th:text="${view == 'initiatives' ? 'Project plan' : (view == 'tasks' or view == 'board' ? 'Chunks' : @ui.label(view))}">Tasks</strong></div><div class="topbar-note"><svg class="icon"><use href="#shield"/></svg>Authenticated workspace</div></header>
+  <div class="demo-banner" th:if="${demoData}"><span class="demo-dot"></span><strong>Example project</strong><span>This sample shows how to develop Relay one chunk at a time. Create a project to plan your own work.</span></div>
+  <div th:replace="${pageContent}"></div>
+  <footer class="site-footer">Relay · One project, one chunk at a time<span>Changes are saved to the shared workspace.</span></footer>
+</main>
+</body></html>

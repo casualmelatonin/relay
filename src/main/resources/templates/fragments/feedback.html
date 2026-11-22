@@ -1,0 +1,4 @@
+<html xmlns:th="http://www.thymeleaf.org"><body><div th:fragment="feedback">
+<div th:if="${error}" class="flash error" role="alert"><svg class="icon"><use href="#warning"/></svg><span th:text="${error}"></span></div>
+<div th:if="${success}" class="flash success" role="status"><svg class="icon"><use href="#check"/></svg><span th:text="${success}"></span></div>
+</div></body></html>

@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: layout(~{::#page-content})}"><body>
+<div id="page-content" class="page">
+  <div th:replace="~{fragments/feedback :: feedback}"></div>
+  <th:block th:if="${view == 'projects'}"><div th:replace="~{workspace/projects :: projects}"></div></th:block>
+  <th:block th:if="${view == 'tasks' or view == 'board'}"><div th:replace="~{workspace/tasks :: tasks}"></div></th:block>
+  <th:block th:if="${view == 'initiatives'}"><div th:replace="~{workspace/roadmap :: roadmap}"></div></th:block>
+  <th:block th:if="${view == 'agents'}"><div th:replace="~{workspace/agents :: agents}"></div></th:block>
+  <th:block th:if="${view == 'activity'}"><div th:replace="~{workspace/activity :: activity}"></div></th:block>
+  <th:block th:if="${view == 'tools'}"><div th:replace="~{workspace/tools :: tools}"></div></th:block>
+</div></body></html>
