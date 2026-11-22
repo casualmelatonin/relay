@@ -64,6 +64,10 @@ public final class ToolCatalog {
             UUID));
     return List.of(
         tool(
+            "get_agent_guide",
+            "Read this first before planning or executing work. Returns Relay's onboarding guide as Markdown in content, with format=markdown: what to create, all MCP tools, examples, claims, verification, and handoffs. No repository access required.",
+            Map.of()),
+        tool(
             "list_work",
             "Read shared work, optionally filtering type, status, assigneeId, parentId, query, or availableOnly. Available means ready with finished dependencies and no live claim. Assignment does not launch an agent.",
             fields(

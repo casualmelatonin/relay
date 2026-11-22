@@ -65,7 +65,7 @@ The workspace uses a dark theme, including navigation, forms, lists, boards, and
 | `templates/workspace` | One template per feature, plus shared layout and learning guide fragments |
 | `static/css` | Design tokens, shell, reusable components, and feature layouts |
 
-See [architecture](docs/architecture.md), [API and agent guide](docs/agents.md), and [production setup](docs/production.md).
+Connecting an assistant? Start with the [API and agent guide](docs/agents.md) for what to create, the complete MCP tool reference, request examples, and the execution workflow. Also see [architecture](docs/architecture.md) and [production setup](docs/production.md).
 
 ## Verification and current boundaries
 

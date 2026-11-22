@@ -71,7 +71,7 @@ public class McpController {
                 "serverInfo",
                 Map.of("name", "relay-coordination", "version", "1.0.0"),
                 "instructions",
-                "Register an agent profile. Inspect work, claim before execution, renew leases with claimToken, and leave output evidence before review/completion. Assignment never launches a process."));
+                "Call get_agent_guide first for Relay's planning workflow and complete tool reference. Register an agent profile. Inspect work, claim before execution, renew leases with claimToken, and leave output evidence before review/completion. Assignment never launches a process."));
       }
       case "ping" -> result(id, Map.of());
       case "tools/list" -> result(id, Map.of("tools", ToolCatalog.tools()));

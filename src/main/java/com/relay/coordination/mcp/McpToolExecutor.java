@@ -18,23 +18,30 @@ public final class McpToolExecutor {
   private final Validator validator;
   private final Clock clock;
   private final ChunkGuideService guides;
+  private final AgentGuide agentGuide;
 
   public McpToolExecutor(
       CoordinationService coordination,
       ObjectMapper mapper,
       Validator validator,
       Clock clock,
-      ChunkGuideService guides) {
+      ChunkGuideService guides,
+      AgentGuide agentGuide) {
     this.coordination = coordination;
     this.mapper = mapper;
     this.validator = validator;
     this.clock = clock;
     this.guides = guides;
+    this.agentGuide = agentGuide;
   }
 
   public Object execute(String name, JsonNode args) {
     String subject = "workspace";
     return switch (name) {
+      case "get_agent_guide" -> {
+        if (!args.isEmpty()) throw new IllegalArgumentException("This tool takes no arguments.");
+        yield agentGuide.read();
+      }
       case "list_work" -> {
         var workspace = coordination.snapshot();
         yield workspace.items().stream()
