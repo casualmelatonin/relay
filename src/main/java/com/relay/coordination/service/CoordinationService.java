@@ -58,6 +58,7 @@ public class CoordinationService {
   private final WorkspaceLockRepository locks;
   private final Clock clock;
   private final CompletionGraphPolicy completionPolicy;
+  private final TicketNumbering ticketNumbering;
 
   public CoordinationService(
       WorkItemRepository items,
@@ -65,22 +66,23 @@ public class CoordinationService {
       ActivityEventRepository activity,
       WorkspaceLockRepository locks,
       Clock clock,
-      CompletionGraphPolicy completionPolicy) {
+      CompletionGraphPolicy completionPolicy,
+      TicketNumbering ticketNumbering) {
     this.items = items;
     this.agents = agents;
     this.activity = activity;
     this.locks = locks;
     this.clock = clock;
     this.completionPolicy = completionPolicy;
+    this.ticketNumbering = ticketNumbering;
   }
 
   @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
   public WorkspaceSnapshot snapshot() {
     List<WorkItem> work = items.findAllByOrderByIdAsc();
     Instant now = clock.instant();
-    Map<Long, WorkItem> indexed = index(work);
     return new WorkspaceSnapshot(
-        work.stream().map(item -> dto(item, indexed::get)).toList(),
+        work.stream().map(this::dto).toList(),
         agents.findAllByOrderByNameAsc().stream().map(a -> dto(a, work, now)).toList(),
         activity.findTop200ByOrderByCreatedAtDescIdDesc().stream().map(this::dto).toList());
   }
@@ -140,10 +142,10 @@ public class CoordinationService {
             || request.keyPrefix().isBlank()
             || request.type() == ItemType.INITIATIVE,
         "Ticket prefixes can only be set on projects; child work inherits its project prefix.");
-    if (request.type() == ItemType.INITIATIVE)
-      created.setKeyPrefix(WorkItemKeys.normalize(request.keyPrefix()));
     completionPolicy.validateParent(created, graph);
+    ticketNumbering.assignNew(created, request.keyPrefix(), graph);
     items.saveAndFlush(created);
+    ticketNumbering.registerProject(created);
     graph.put(created.getId(), created);
     completionPolicy.validateGraph(graph);
     record(
@@ -205,7 +207,7 @@ public class CoordinationService {
       require(
           current.getType() == ItemType.INITIATIVE,
           "Ticket prefixes can only be set on projects; child work inherits its project prefix.");
-      current.setKeyPrefix(WorkItemKeys.normalize(request.keyPrefix()));
+      ticketNumbering.renameProject(current, request.keyPrefix(), graph);
     }
     if (title != null) current.setTitle(title);
     if (description != null) current.setDescription(description);
@@ -222,6 +224,7 @@ public class CoordinationService {
       current.clearClaim();
     }
     completionPolicy.validateGraph(graph);
+    ticketNumbering.reconcileMovedWork(graph);
     if (current.getStatus() == WorkStatus.DONE) current.clearClaim();
     current.touch(now);
     items.flush();
@@ -398,20 +401,10 @@ public class CoordinationService {
     return activity.save(new ActivityEvent(itemId, actor, message, now));
   }
 
-  private Map<Long, WorkItem> index(List<WorkItem> work) {
-    Map<Long, WorkItem> indexed = new LinkedHashMap<>();
-    work.forEach(item -> indexed.put(item.getId(), item));
-    return indexed;
-  }
-
   private WorkItemDto dto(WorkItem item) {
-    return dto(item, id -> items.findById(id).orElse(null));
-  }
-
-  private WorkItemDto dto(WorkItem item, java.util.function.Function<Long, WorkItem> lookup) {
     return new WorkItemDto(
         item.getId(),
-        WorkItemKeys.key(item, lookup),
+        WorkItemKeys.key(item),
         item.getTitle(),
         item.getType(),
         item.getParentId(),
@@ -429,7 +422,7 @@ public class CoordinationService {
         item.getVersion(),
         item.getCreatedAt(),
         item.getUpdatedAt(),
-        WorkItemKeys.prefix(item, lookup));
+        WorkItemKeys.prefix(item));
   }
 
   private AgentDto dto(AgentProfile agent, List<WorkItem> work, Instant now) {

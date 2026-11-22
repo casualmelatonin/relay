@@ -34,6 +34,12 @@ public class WorkItem {
   @Column(name = "key_prefix", length = 12)
   private String keyPrefix;
 
+  @Column(name = "ticket_prefix", nullable = false, length = 12)
+  private String ticketPrefix;
+
+  @Column(name = "ticket_number", nullable = false)
+  private long ticketNumber;
+
   @Column(nullable = false, length = 240)
   private String title;
 
@@ -135,6 +141,19 @@ public class WorkItem {
 
   public void setKeyPrefix(String keyPrefix) {
     this.keyPrefix = keyPrefix;
+  }
+
+  public String getTicketPrefix() {
+    return ticketPrefix;
+  }
+
+  public long getTicketNumber() {
+    return ticketNumber;
+  }
+
+  public void assignTicketKey(String prefix, long number) {
+    this.ticketPrefix = prefix;
+    this.ticketNumber = number;
   }
 
   public String getTitle() {

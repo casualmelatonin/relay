@@ -39,7 +39,9 @@ Projects, milestones, stories, and chunks map to stable API enum values `INITIAT
 
 ## Project ticket prefixes
 
-Set **Ticket prefix** when creating or editing a project (for example, `HTTP`). Milestones and chunks inherit the project prefix, producing identifiers such as `HTTP-18`. Prefixes accept 2–12 letters/digits starting with a letter and are normalized to uppercase; blank uses `RLY`. Existing projects and standalone work retain `RLY` until configured. Numeric IDs, URLs, dependencies and learning guides are unchanged. Reparented work inherits its new project’s prefix. Historical activity text is not rewritten.
+Set a unique **Ticket prefix** when creating a project, such as `HTTP`. The project starts at `HTTP-1`; every milestone, story, and task in that project takes the next number from its own persistent sequence. Another project starts at 1 under its own prefix. Prefixes accept 2–12 letters/digits, starting with a letter, and are normalized to uppercase. Duplicate prefixes are rejected. A blank prefix on creation selects the next available `RLY` prefix.
+
+Standalone work uses the reserved `WORK` prefix. Renaming a project prefix preserves its ticket numbers. Moving a ticket or milestone tree into another project allocates fresh numbers from the destination sequence; vacated numbers are not reused. Database IDs, URLs, dependencies, and saved guides remain intact. Existing projects are migrated in creation order; any duplicate legacy prefixes receive numeric suffixes. Historical activity text is not rewritten.
 
 REST and MCP create/update requests accept optional `keyPrefix` on `INITIATIVE` items; read responses include the effective prefix. Omit it on child work and when preserving the existing setting.
 

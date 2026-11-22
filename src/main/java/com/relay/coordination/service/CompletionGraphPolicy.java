@@ -95,7 +95,7 @@ final class CompletionGraphPolicy {
     List<String> blockers =
         current.getDependencies().stream()
             .filter(id -> item(graph, id).getStatus() != WorkStatus.DONE)
-            .map(id -> WorkItemKeys.key(item(graph, id), graph::get))
+            .map(id -> WorkItemKeys.key(item(graph, id)))
             .sorted()
             .toList();
     if (!blockers.isEmpty())
