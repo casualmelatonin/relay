@@ -852,51 +852,6 @@
   gap:8px;
   align-items:center;
 }
-.learning-guide {
-  background:#f8f9fe;
-  padding:23px;
-  border:1px solid #e1e6f7;
-  border-radius:10px;
-  margin-bottom:25px;
-}
-.learning-guide h2 {
-  font-size:16px;
-  margin-bottom:7px;
-}
-.learning-guide>p {
-  font-size:12px;
-  color:#8c97ad;
-  margin-bottom:21px;
-}
-.learning-guide .form-label {
-  font-size:12px;
-}
-.learning-guide .form-grid {
-  gap:0 20px;
-}
-.learning-guide textarea {
-  background:white;
-}
-.learning-guide summary {
-  font-size:13px;
-  margin-bottom:15px;
-}
-.chunk-steps {
-  display:flex;
-  gap:8px;
-  align-items:center;
-  flex-wrap:wrap;
-  margin-bottom:20px;
-  font-size:10px;
-  color:#9ba5b9;
-}
-.chunk-steps>b {
-  background:#eef1fc;
-  padding:5px 9px;
-  border-radius:5px;
-  font-weight:550;
-  color:#7b87ad;
-}
 @media(max-width:1300px) {
   .agent-grid {
     grid-template-columns:repeat(2,minmax(0,1fr));
@@ -1058,9 +1013,6 @@
   }
   .detail-heading h1 {
     font-size:22px;
-  }
-  .learning-guide {
-    padding:17px;
   }
   .detail-page .form-grid {
     gap:0;

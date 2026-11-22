@@ -18,15 +18,10 @@ public final class WorkspacePageController {
       Set.of("projects", "tasks", "board", "initiatives", "agents", "activity", "tools");
   private final WorkspaceViewFactory views;
   private final CoordinationService service;
-  private final com.relay.coordination.chunk.ChunkGuideService guides;
 
-  public WorkspacePageController(
-      WorkspaceViewFactory views,
-      CoordinationService service,
-      com.relay.coordination.chunk.ChunkGuideService guides) {
+  public WorkspacePageController(WorkspaceViewFactory views, CoordinationService service) {
     this.views = views;
     this.service = service;
-    this.guides = guides;
   }
 
   @GetMapping("/")
@@ -49,9 +44,6 @@ public final class WorkspacePageController {
     var item = service.getItem(id);
     views.populate(model, "tasks", "", "", "", "", "");
     model.addAttribute("selected", item);
-    model.addAttribute(
-        "guide",
-        model.containsAttribute("guideDraft") ? model.getAttribute("guideDraft") : guides.get(id));
     if (!model.containsAttribute("editForm")) model.addAttribute("editForm", Map.of());
     return "item-detail";
   }
