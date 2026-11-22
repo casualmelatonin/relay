@@ -8,7 +8,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.function.Function;
 
-/** Project-owned prefixes; numeric IDs and dependency relationships remain stable. */
+/** Resolves project ownership while keeping database IDs separate from public ticket keys. */
 final class WorkItemKeys {
   private WorkItemKeys() {}
 
@@ -23,18 +23,21 @@ final class WorkItemKeys {
     return prefix;
   }
 
-  static String prefix(WorkItem item, Function<Long, WorkItem> lookup) {
+  static long scope(WorkItem item, Function<Long, WorkItem> lookup) {
     Set<Long> visited = new HashSet<>();
     WorkItem current = item;
     while (current != null && visited.add(current.getId())) {
-      if (current.getType() == ItemType.INITIATIVE)
-        return current.getKeyPrefix() == null ? "RLY" : current.getKeyPrefix();
+      if (current.getType() == ItemType.INITIATIVE) return current.getId();
       current = current.getParentId() == null ? null : lookup.apply(current.getParentId());
     }
-    return "RLY";
+    return 0;
   }
 
-  static String key(WorkItem item, Function<Long, WorkItem> lookup) {
-    return prefix(item, lookup) + "-" + item.getId();
+  static String prefix(WorkItem item) {
+    return item.getTicketPrefix();
+  }
+
+  static String key(WorkItem item) {
+    return item.getTicketPrefix() + "-" + item.getTicketNumber();
   }
 }

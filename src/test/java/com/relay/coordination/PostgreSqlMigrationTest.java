@@ -40,11 +40,15 @@ class PostgreSqlMigrationTest {
   @Test
   void migrationCreatesTheCoordinationSchemaAndSingletonLock() {
     assertNotNull(flyway.info().current());
-    assertEquals("3", flyway.info().current().getVersion().getVersion());
+    assertEquals("4", flyway.info().current().getVersion().getVersion());
     assertEquals(
         1,
         jdbc.queryForObject("select count(*) from workspace_lock where id = 1", Integer.class)
             .intValue());
+    assertEquals(
+        1L,
+        jdbc.queryForObject(
+            "select next_number from ticket_sequences where scope_id = 0", Long.class));
     assertEquals(
         0, jdbc.queryForObject("select count(*) from work_items", Integer.class).intValue());
     assertEquals(
