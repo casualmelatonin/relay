@@ -496,6 +496,140 @@ class CoordinationIntegrationTest {
     assertEquals("BACKLOG", getItem(created).path("status").asText());
   }
 
+  @Test
+  void projectPrefixRenamesExistingDescendantsWithoutChangingRelationships() throws Exception {
+    JsonNode project = create(payload("type", "INITIATIVE"));
+    JsonNode epic = create(payload("type", "EPIC", "parentId", id(project)));
+    JsonNode prerequisite = create(payload("parentId", id(epic)));
+    JsonNode task =
+        create(payload("parentId", id(epic), "dependencies", List.of(id(prerequisite))));
+    JsonNode nested = create(payload("parentId", id(task)));
+    JsonNode other = create(payload("type", "INITIATIVE"));
+    assertEquals("RLY-" + id(task), task.path("key").asText());
+
+    JsonNode renamed = updateItem(project, payload("keyPrefix", "http"));
+    assertEquals("HTTP-" + id(project), renamed.path("key").asText());
+    for (JsonNode item : List.of(epic, prerequisite, task, nested)) {
+      JsonNode after = getItem(item);
+      assertEquals("HTTP-" + id(item), after.path("key").asText());
+      assertEquals("HTTP", after.path("keyPrefix").asText());
+      assertEquals(item.path("parentId"), after.path("parentId"));
+      assertEquals(item.path("dependencies"), after.path("dependencies"));
+    }
+    assertEquals("RLY-" + id(other), getItem(other).path("key").asText());
+    for (JsonNode listed : success(get("/api/v1/items"), null)) {
+      if (id(listed) == id(task)) assertEquals("HTTP-" + id(task), listed.path("key").asText());
+    }
+    String detail =
+        mvc.perform(get("/items/" + id(task)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertTrue(detail.contains("HTTP-" + id(prerequisite)));
+    JsonNode blocked =
+        mapper.readTree(
+            perform(
+                    patch(itemUrl(task)),
+                    payload("version", version(task), "status", "IN_PROGRESS"))
+                .andExpect(status().isConflict())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    assertTrue(blocked.path("detail").asText().contains("HTTP-" + id(prerequisite)));
+    perform(patch(itemUrl(project)), payload("version", version(project), "keyPrefix", "STALE"))
+        .andExpect(status().isConflict());
+    assertEquals("HTTP", getItem(project).path("keyPrefix").asText());
+    JsonNode reset = updateItem(renamed, payload("keyPrefix", ""));
+    assertEquals("RLY", reset.path("keyPrefix").asText());
+    assertEquals("RLY-" + id(task), getItem(task).path("key").asText());
+  }
+
+  @Test
+  void prefixInheritanceFollowsNewChildrenAndReparenting() throws Exception {
+    JsonNode first = create(payload("type", "INITIATIVE", "keyPrefix", "HTTP"));
+    JsonNode second = create(payload("type", "INITIATIVE", "keyPrefix", "NET2"));
+    JsonNode epic = create(payload("type", "EPIC", "parentId", id(first)));
+    JsonNode task = create(payload("parentId", id(epic)));
+    assertEquals("HTTP-" + id(task), task.path("key").asText());
+    epic = updateItem(epic, payload("parentId", id(second)));
+    assertEquals("NET2-" + id(task), getItem(task).path("key").asText());
+    updateItem(epic, payload("clearParent", true));
+    assertEquals("RLY-" + id(task), getItem(task).path("key").asText());
+    JsonNode preserved = updateItem(first, payload("title", "Changed project title"));
+    assertEquals("HTTP", preserved.path("keyPrefix").asText());
+  }
+
+  @Test
+  void invalidPrefixesAndChildOverridesAreRejectedWithoutMutation() throws Exception {
+    JsonNode project = create(payload("type", "INITIATIVE", "keyPrefix", "HTTP"));
+    for (String bad : List.of("X", "1HTTP", "HTTP-NET", "TOOLONGPREFIXVALUE", "H T", "éx")) {
+      assertRejectedUnchanged(project, payload("keyPrefix", bad));
+      perform(
+              post("/api/v1/items"),
+              payload("title", unique("Invalid"), "type", "INITIATIVE", "keyPrefix", bad))
+          .andExpect(status().is4xxClientError());
+    }
+    JsonNode task = create(payload());
+    assertRejectedUnchanged(task, payload("keyPrefix", "OTHER"));
+    perform(
+            post("/api/v1/items"),
+            payload("title", unique("Child prefix"), "type", "TASK", "keyPrefix", "OTHER"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void browserFormsAndMcpSupportProjectPrefixesAndCurrentDependencyKeys() throws Exception {
+    MvcResult result =
+        mvc.perform(
+                post("/ui/items")
+                    .param("type", "INITIATIVE")
+                    .param("title", unique("Browser prefixed project"))
+                    .param("keyPrefix", "web"))
+            .andExpect(status().is3xxRedirection())
+            .andReturn();
+    long projectId = Long.parseLong(result.getResponse().getRedirectedUrl().replace("/items/", ""));
+    JsonNode project = success(get("/api/v1/items/" + projectId), null);
+    assertEquals("WEB-" + projectId, project.path("key").asText());
+    String page =
+        mvc.perform(get("/items/" + projectId))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertTrue(page.contains("name=\"keyPrefix\""));
+    assertTrue(page.contains("value=\"WEB\""));
+    JsonNode epic = create(payload("type", "EPIC", "parentId", projectId));
+    JsonNode prerequisite = create(payload("parentId", id(epic)));
+    MvcResult childResult =
+        mvc.perform(
+                post("/ui/items")
+                    .param("type", "TASK")
+                    .param("title", unique("Dependent browser chunk"))
+                    .param("parentId", "" + id(epic))
+                    .param("dependencies", prerequisite.path("key").asText()))
+            .andExpect(status().is3xxRedirection())
+            .andReturn();
+    assertNotEquals("/items/new", childResult.getResponse().getRedirectedUrl());
+    JsonNode child = success(get("/api/v1" + childResult.getResponse().getRedirectedUrl()), null);
+    assertEquals(id(prerequisite), child.path("dependencies").get(0).asLong());
+    JsonNode changed =
+        mcp(
+            "tools/call",
+            payload(
+                "name",
+                "update_item",
+                "arguments",
+                payload("id", projectId, "version", version(project), "keyPrefix", "HTTP")));
+    assertFalse(changed.path("result").path("isError").asBoolean());
+    assertEquals("HTTP-" + id(child), getItem(child).path("key").asText());
+    JsonNode tools = mcp("tools/list", payload());
+    for (JsonNode tool : tools.path("result").path("tools")) {
+      if (Set.of("create_item", "update_item").contains(tool.path("name").asText()))
+        assertTrue(tool.path("inputSchema").path("properties").has("keyPrefix"));
+    }
+  }
+
   private JsonNode create(Map<String, Object> extra) throws Exception {
     Map<String, Object> body = payload("title", unique("Work"), "type", "TASK");
     body.putAll(extra);
