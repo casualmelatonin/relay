@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -442,6 +444,42 @@ class CoordinationIntegrationTest {
     assertEquals("workspace", comment.path("actor").asText());
     assertEquals(id(task), comment.path("itemId").asLong());
     assertEquals("Verification artifact is ready", comment.path("message").asText());
+  }
+
+  @Test
+  void externalAgentsCanDiscoverAndReadTheBundledGuide() throws Exception {
+    JsonNode initialized = mcp("initialize", payload());
+    assertTrue(
+        initialized.path("result").path("instructions").asText().contains("get_agent_guide"));
+
+    JsonNode listed = mcp("tools/list", payload());
+    JsonNode definition = null;
+    for (JsonNode tool : listed.path("result").path("tools")) {
+      if (tool.path("name").asText().equals("get_agent_guide")) definition = tool;
+    }
+    assertNotNull(definition);
+    assertEquals(0, definition.path("inputSchema").path("properties").size());
+    assertEquals(0, definition.path("inputSchema").path("required").size());
+    assertFalse(definition.path("inputSchema").path("additionalProperties").asBoolean());
+
+    JsonNode response =
+        mcp("tools/call", payload("name", "get_agent_guide", "arguments", payload()));
+    assertFalse(response.path("result").path("isError").asBoolean());
+    JsonNode guide =
+        mapper.readTree(response.path("result").path("content").get(0).path("text").asText());
+    assertEquals("markdown", guide.path("format").asText());
+    String content = guide.path("content").asText();
+    assertEquals(Files.readString(Path.of("docs/agents.md")), content);
+    assertTrue(content.contains("## What to create"));
+    for (JsonNode tool : listed.path("result").path("tools")) {
+      assertTrue(content.contains("| `" + tool.path("name").asText() + "` |"));
+    }
+
+    JsonNode omittedArguments = mcp("tools/call", payload("name", "get_agent_guide"));
+    assertEquals(response.path("result"), omittedArguments.path("result"));
+    JsonNode rejected =
+        mcp("tools/call", payload("name", "get_agent_guide", "arguments", payload("id", 1)));
+    assertTrue(rejected.path("result").path("isError").asBoolean());
   }
 
   @Test
