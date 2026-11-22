@@ -45,6 +45,10 @@ Standalone work uses the reserved `WORK` prefix. Renaming a project prefix prese
 
 REST and MCP create/update requests accept optional `keyPrefix` on `INITIATIVE` items; read responses include the effective prefix. Omit it on child work and when preserving the existing setting.
 
+## Appearance
+
+The workspace uses a dark theme, including navigation, forms, lists, boards, and status badges. Shared colors live in `static/css/tokens.css`; feature styles use those tokens. Native form controls follow the same dark color scheme.
+
 ## Code map
 
 | Module | Responsibility |
