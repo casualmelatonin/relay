@@ -1,5 +1,7 @@
 package com.relay.coordination;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -85,7 +87,7 @@ class ChunkLearningTest {
         .andExpect(status().isOk())
         .andExpect(content().string(org.hamcrest.Matchers.containsString("What to build")))
         .andExpect(content().string(org.hamcrest.Matchers.containsString("Definition of done")))
-        .andExpect(content().string(org.hamcrest.Matchers.containsString("Save changes")))
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("Edit details")))
         .andExpect(
             content()
                 .string(
@@ -114,5 +116,82 @@ class ChunkLearningTest {
     mvc.perform(get("/api/v1/items/" + id + "/guide"))
         .andExpect(jsonPath("$.learningGoal").value("Understand constructor injection."));
     mvc.perform(post("/ui/items/" + id + "/guide")).andExpect(status().isNotFound());
+  }
+
+  @Test
+  void chunkPreviewShowsFullEscapedContentAndKeepsEditingAndRecoveryAvailable() throws Exception {
+    String description =
+        "First line\n\n"
+            + "A focused implementation step.\n".repeat(45)
+            + "<script>alert(1)</script>";
+    var created =
+        mvc.perform(
+                post("/api/v1/items")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        mapper.writeValueAsString(
+                            Map.of(
+                                "title",
+                                "Readable chunk " + UUID.randomUUID(),
+                                "type",
+                                "TASK",
+                                "description",
+                                description,
+                                "acceptance",
+                                "Verify the full content.\nReview the outcome."))))
+            .andExpect(status().isCreated())
+            .andReturn();
+    var item = mapper.readTree(created.getResponse().getContentAsString());
+    String url = "/items/" + item.path("id").asLong();
+    mvc.perform(get(url))
+        .andExpect(status().isOk())
+        .andExpect(
+            content()
+                .string(
+                    containsString(org.springframework.web.util.HtmlUtils.htmlEscape(description))))
+        .andExpect(content().string(containsString("id=\"definition-of-done\"")))
+        .andExpect(content().string(containsString("No result recorded yet.")))
+        .andExpect(content().string(containsString("aria-label=\"On this chunk\"")))
+        .andExpect(content().string(not(containsString("name=\"description\""))))
+        .andExpect(content().string(not(containsString("<script>"))))
+        .andExpect(content().string(containsString(url + "?edit=true")));
+    mvc.perform(get(url).param("edit", "true"))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("name=\"description\"")))
+        .andExpect(
+            content()
+                .string(
+                    containsString(org.springframework.web.util.HtmlUtils.htmlEscape(description))))
+        .andExpect(content().string(containsString("Save changes")));
+
+    var saved =
+        mvc.perform(
+                post("/ui" + url + "/update")
+                    .param("version", item.path("version").asText())
+                    .param("title", item.path("title").asText())
+                    .param("description", description)
+                    .param("acceptance", "Verified preview")
+                    .param("output", "Result and verification evidence"))
+            .andExpect(redirectedUrl(url))
+            .andReturn();
+    mvc.perform(get(url).flashAttrs(saved.getFlashMap()))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("Result and verification evidence")))
+        .andExpect(content().string(not(containsString("name=\"description\""))));
+
+    var rejected =
+        mvc.perform(
+                post("/ui" + url + "/update")
+                    .param("version", item.path("version").asText())
+                    .param("title", item.path("title").asText())
+                    .param("description", "Preserve this draft after a version conflict"))
+            .andExpect(redirectedUrl(url))
+            .andReturn();
+    mvc.perform(get(url).flashAttrs(rejected.getFlashMap()))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("role=\"alert\"")))
+        .andExpect(content().string(containsString("name=\"description\"")))
+        .andExpect(content().string(containsString("Preserve this draft after a version conflict")))
+        .andExpect(content().string(not(containsString("id=\"what-to-build\""))));
   }
 }
