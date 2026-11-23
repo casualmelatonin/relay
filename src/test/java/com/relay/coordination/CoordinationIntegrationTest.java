@@ -1,7 +1,11 @@
 package com.relay.coordination;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -708,6 +712,93 @@ class CoordinationIntegrationTest {
     for (JsonNode tool : tools.path("result").path("tools"))
       if (Set.of("create_item", "update_item").contains(tool.path("name").asText()))
         assertTrue(tool.path("inputSchema").path("properties").has("keyPrefix"));
+  }
+
+  @Test
+  void projectLinksAndTicketNavigationKeepTheOriginatingProject() throws Exception {
+    JsonNode project = create(payload("type", "INITIATIVE"));
+    JsonNode milestone = create(payload("type", "EPIC", "parentId", id(project)));
+    JsonNode chunk = create(payload("parentId", id(milestone)));
+    String context = "" + id(project);
+    String chunkPath = "/items/" + id(chunk);
+    for (String view : List.of("projects", "initiatives")) {
+      mvc.perform(get("/").param("view", view).param("project", context))
+          .andExpect(status().isOk())
+          .andExpect(content().string(containsString(chunkPath + "?project=" + context)));
+    }
+    mvc.perform(get(chunkPath).param("project", context))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("← Back to project")))
+        .andExpect(content().string(not(containsString("← Back to chunks"))))
+        .andExpect(content().string(containsString("/?view=initiatives&amp;project=" + context)))
+        .andExpect(
+            content().string(containsString(chunkPath + "?project=" + context + "&amp;edit=true")))
+        .andExpect(
+            content().string(containsString("/items/" + id(milestone) + "?project=" + context)));
+    mvc.perform(get(chunkPath).param("project", context).param("edit", "true"))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("name=\"project\" value=\"" + context + "\"")))
+        .andExpect(content().string(containsString(chunkPath + "?project=" + context)));
+    for (MockHttpServletRequestBuilder request :
+        List.of(
+            get(chunkPath),
+            get(chunkPath).param("project", "99999999"),
+            get(chunkPath).param("project", "" + id(milestone)))) {
+      mvc.perform(request)
+          .andExpect(status().isOk())
+          .andExpect(content().string(containsString("← Back to chunks")))
+          .andExpect(content().string(not(containsString("← Back to project"))));
+    }
+  }
+
+  @Test
+  void projectReturnContextSurvivesSavingConflictsCommentsAndClaims() throws Exception {
+    JsonNode project = create(payload("type", "INITIATIVE"));
+    JsonNode milestone = create(payload("type", "EPIC", "parentId", id(project)));
+    JsonNode chunk = ready(payload("parentId", id(milestone)));
+    String context = "" + id(project);
+    String path = "/items/" + id(chunk);
+    String destination = path + "?project=" + context;
+    mvc.perform(
+            post("/ui" + path + "/update")
+                .param("version", "" + version(chunk))
+                .param("title", chunk.path("title").asText())
+                .param("parentId", "" + id(milestone))
+                .param("project", context))
+        .andExpect(redirectedUrl(destination));
+    var conflict =
+        mvc.perform(
+                post("/ui" + path + "/update")
+                    .param("version", "" + version(chunk))
+                    .param("title", "Preserved project draft")
+                    .param("project", context))
+            .andExpect(redirectedUrl(destination))
+            .andReturn();
+    mvc.perform(get(path).param("project", context).flashAttrs(conflict.getFlashMap()))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("← Back to project")))
+        .andExpect(content().string(containsString("Preserved project draft")));
+    mvc.perform(
+            post("/ui" + path + "/comments").param("body", "Reviewed").param("project", context))
+        .andExpect(redirectedUrl(destination));
+    JsonNode agent = register("project-navigation-test");
+    chunk = getItem(chunk);
+    mvc.perform(
+            post("/ui" + path + "/claim")
+                .param("agentId", agent.path("id").asText())
+                .param("version", "" + version(chunk))
+                .param("project", context))
+        .andExpect(redirectedUrl(destination));
+    chunk = getItem(chunk);
+    assertEquals(agent.path("id").asText(), chunk.path("claimantId").asText());
+    mvc.perform(
+            post("/ui" + path + "/release")
+                .param("agentId", agent.path("id").asText())
+                .param("version", "" + version(chunk))
+                .param("claimToken", chunk.path("claimToken").asText())
+                .param("project", context))
+        .andExpect(redirectedUrl(destination));
+    assertTrue(getItem(chunk).path("claimToken").isNull());
   }
 
   private JsonNode create(Map<String, Object> extra) throws Exception {

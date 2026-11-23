@@ -36,6 +36,8 @@ Chunk guides have their own optimistic version so a long explanation does not ha
 
 Ticket pages open in a reading view with complete, escaped plain-text sections. `?edit=true` opens the editing form; a rejected save also opens it automatically using the preserved `editForm` flash attribute. Successful saves return to the preview. See the [readable chunk preview guide](chunks/readable-chunk-preview.md) for the learning context and review steps.
 
+Project entry links carry a `project` query parameter. The item page resolves an existing project for its return link, and forms and redirects preserve that context. Direct entry uses the chunk list as its return destination. This navigation context is kept in the web module; see the [back-to-project guide](chunks/back-to-project.md).
+
 Feature templates are composed only inside conditional `th:block` wrappers. Keeping conditions outside replacement elements avoids Thymeleaf replacement precedence accidentally rendering unrelated pages. CSS is split by responsibility; there is no frontend JavaScript framework or duplicated client-side state machine.
 
 ## Evolution

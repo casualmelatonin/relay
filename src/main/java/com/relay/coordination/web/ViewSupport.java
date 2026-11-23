@@ -14,6 +14,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /** Presentation-only formatting. Coordination rules stay in the application service. */
 @Component("ui")
@@ -139,6 +140,13 @@ public final class ViewSupport {
         item.dependencies().stream()
             .map(id -> items.containsKey(id) ? items.get(id).key() : id.toString())
             .toList());
+  }
+
+  public String itemPath(long id, Long project, boolean edit) {
+    var path = UriComponentsBuilder.fromPath("/items/{id}");
+    if (project != null) path.queryParam("project", project);
+    if (edit) path.queryParam("edit", true);
+    return path.buildAndExpand(id).toUriString();
   }
 
   public long assignedCount(UUID id, List<WorkItemDto> items) {
