@@ -30,6 +30,8 @@ Work-item `@Version` values protect readers from lost updates. Execution leases 
 
 Chunk guides have their own optimistic version so a long explanation does not have to share the task's coordination version. New guides are represented by version `-1`; after creation they use the persisted JPA version. Guide edits append an audit event in the same transaction.
 
+Deletion also runs under the workspace lock. `delete_item` requires the current item version, no children or incoming dependencies, and no unreleased claim. Only owned guide/label/outgoing dependency data cascades. Activity keeps historical IDs without a live-item foreign key; project sequences remain reserved. `delete_agent` rejects any assignment or claim reference. See the [MCP deletion chunk guide](chunks/mcp-deletion.md).
+
 ## UI organization
 
 `WorkspacePageController` contains GET routes. `WorkspaceViewFactory` prepares common view data; `ProjectPlanPresenter` derives project progress, milestone groups, and a suggested next chunk. `WorkItemActionController` and `AgentActionController` handle form submissions using POST/redirect/GET.

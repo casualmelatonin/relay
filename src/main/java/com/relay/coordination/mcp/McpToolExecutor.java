@@ -94,6 +94,16 @@ public final class McpToolExecutor {
           coordination.update(id(args), convert(args, UpdateItemRequest.class, "id"), subject);
       case "register_agent" ->
           coordination.registerAgent(convert(args, RegisterAgentRequest.class), subject);
+      case "delete_item" -> {
+        long itemId = id(args);
+        coordination.deleteItem(itemId, convert(args, DeleteItemRequest.class, "id"), subject);
+        yield Map.of("id", itemId, "deleted", true);
+      }
+      case "delete_agent" -> {
+        var request = convert(args, DeleteAgentRequest.class);
+        coordination.deleteAgent(request.agentId(), subject);
+        yield Map.of("agentId", request.agentId(), "deleted", true);
+      }
       case "claim_task" ->
           coordination.claim(id(args), convert(args, ClaimRequest.class, "id"), subject);
       case "release_task" ->

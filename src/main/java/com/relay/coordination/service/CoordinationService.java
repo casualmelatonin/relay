@@ -6,6 +6,7 @@ import com.relay.coordination.api.dto.ClaimProof;
 import com.relay.coordination.api.dto.ClaimRequest;
 import com.relay.coordination.api.dto.CommentRequest;
 import com.relay.coordination.api.dto.CreateItemRequest;
+import com.relay.coordination.api.dto.DeleteItemRequest;
 import com.relay.coordination.api.dto.HeartbeatRequest;
 import com.relay.coordination.api.dto.RegisterAgentRequest;
 import com.relay.coordination.api.dto.ReleaseRequest;
@@ -230,6 +231,54 @@ public class CoordinationService {
     items.flush();
     record(id, actor, "Updated work item; status " + current.getStatus() + ".", now);
     return dto(current);
+  }
+
+  public void deleteItem(long id, DeleteItemRequest request, String actor) {
+    lock();
+    actor = actor(actor);
+    require(request != null, "A deletion request is required.");
+    Map<Long, WorkItem> graph = graph();
+    WorkItem current = item(graph, id);
+    checkVersion(current, request.version());
+    if (graph.values().stream().anyMatch(i -> Objects.equals(i.getParentId(), id)))
+      throw conflict("item_has_children", "Delete or move child work before deleting this item.");
+    if (graph.values().stream().anyMatch(i -> i.getDependencies().contains(id)))
+      throw conflict(
+          "item_is_prerequisite", "Remove incoming dependencies before deleting this item.");
+    if (current.getClaimToken() != null)
+      throw conflict(
+          "claim_requires_release",
+          "Release the claim, including an expired claim, before deletion.");
+    // The database cascades owned labels, outgoing dependencies and the guide, never other work.
+    items.delete(current);
+    items.flush();
+    // Keep the project sequence reserved so historical ticket keys cannot be reused.
+    record(
+        id,
+        actor,
+        "Deleted "
+            + current.getTicketPrefix()
+            + "-"
+            + current.getTicketNumber()
+            + " “"
+            + current.getTitle()
+            + "”.",
+        clock.instant());
+  }
+
+  public void deleteAgent(UUID agentId, String actor) {
+    lock();
+    actor = actor(actor);
+    AgentProfile profile = agent(agentId);
+    if (graph().values().stream()
+        .anyMatch(i -> agentId.equals(i.getAssigneeId()) || agentId.equals(i.getClaimantId())))
+      throw conflict(
+          "agent_in_use",
+          "Release claims and clear or change assignments before deleting this profile.");
+    agents.delete(profile);
+    agents.flush();
+    record(
+        null, actor, "Deleted agent " + profile.getName() + " (" + agentId + ").", clock.instant());
   }
 
   public WorkItemDto claim(long id, ClaimRequest request, String actor) {

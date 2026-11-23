@@ -116,6 +116,8 @@ All tool arguments are flat JSON objects. Supply only documented fields. Numeric
 | `update_chunk_guide` | `id`, `version` | `purpose`, `learningGoal`, `steps`, `reflection`. Use the current guide version, or `-1` for a new guide. Send the full intended content: omitted guide text fields are cleared. |
 | `create_item` | `title`, `type` | `keyPrefix`, `parentId`, `priority`, `assigneeId`, `description`, `acceptance`, `labels`, `dependencies`. Creates in `BACKLOG`; default priority is `MEDIUM`. |
 | `update_item` | `id`, `version` | `title`, `keyPrefix`, `parentId`, `clearParent`, `status`, `priority`, `assigneeId`, `clearAssignee`, `description`, `acceptance`, `output`, `labels`, `dependencies`, `agentId`, `claimToken`. Type cannot be changed. Claimed work requires current execution proof. |
+| `delete_item` | `id`, `version` | Permanently delete one item and its guide, labels, and outgoing dependency links. Requires no children, incoming dependencies, or unreleased claims (including expired claims). Activity remains; ticket keys stay reserved. Returns `{ "id": 42, "deleted": true }`. |
+| `delete_agent` | `agentId` | Permanently delete an unused profile after releasing claims and clearing/changing every assignment. Activity remains. Does not stop a runtime process. Returns `{ "agentId": "<UUID>", "deleted": true }`. |
 | `register_agent` | `name`, `role` | `subject` (runtime label), `color` (`#RRGGBB`). Names are unique ignoring case. Retain the returned profile UUID; reuse your own profile on later calls. |
 | `claim_task` | `id`, `agentId`, `version` | Atomically claims a `READY` or `IN_PROGRESS` story/task for 15 minutes, assigns it to the claimant, and sets `IN_PROGRESS`. Returns the current item and token. |
 | `release_task` | `id`, `agentId`, `version`, `claimToken` | Clears your claim; `IN_PROGRESS` becomes `READY`. Assignment remains. Valid proof can release an expired claim too. |
@@ -174,6 +176,24 @@ Read the returned task's guide with `get_chunk_guide`. If its ID is `12` and gui
 
 Read returned versions after each mutation. Do not calculate the next version or reuse an example version. Item and guide versions are independent.
 
+## Delete obsolete work or profiles
+
+Call `get_item` first and supply its returned `version` to `delete_item`:
+
+```json
+{"name":"delete_item","arguments":{"id":42,"version":3}}
+```
+
+Deletion is permanent. Remove incoming dependencies and delete or move children first; there is no subtree deletion. Release any claim with its current proof before deletion, even if the lease expired. The item's learning guide, labels, and outgoing dependency links are deleted together. Prior activity and a new deletion event keep the original numeric item ID, so `get_activity` can still filter recent events for a deleted item. Deleted project prefixes and all allocated ticket numbers stay reserved to avoid reusing historical keys.
+
+For an agent profile, release its claims, clear or change its assignments with `update_item`, then call:
+
+```json
+{"name":"delete_agent","arguments":{"agentId":"<profile UUID>"}}
+```
+
+A repeated delete returns `not_found`; after an uncertain network result, inspect current state before retrying. Only work-item deletion uses an optimistic version: agent profiles have no version and deletion checks all current references under the workspace lock. These tools use the same shared-workspace access model as other mutations; profile UUIDs are not authentication credentials.
+
 ## Recover from rejected calls
 
 | Error / situation | Next action |
@@ -183,6 +203,9 @@ Read returned versions after each mutation. Do not calculate the next version or
 | `stale_claim`, expired lease | Read current work. Reacquire with `claim_task` if eligible or release your expired claim with its proof. An expired token cannot authorize updates and heartbeat cannot revive it. |
 | `incomplete_claim_proofs` | Supply proofs for every active claim held by that profile in one heartbeat. |
 | `unfinished_dependencies`, `unfinished_children`, `graph_cycle` | Inspect prerequisite and parent links; finish required work or correct the plan without introducing a completion deadlock. |
+| `item_has_children`, `item_is_prerequisite` | Move/delete children or remove incoming dependency links before deletion. No related work is deleted automatically. |
+| `claim_requires_release` | Release the current claim using its proof, including an expired claim, then read the new version before deletion. |
+| `agent_in_use` | Release claims and clear/change all assignments before deleting the profile. |
 | `output_required` | Supply nonblank completion evidence before closing a story/task. |
 | `validation_failed`, `invalid_arguments` | Compare arguments with `tools/list`; check required values, types, enums, and lengths. |
 | Uncertain outcome after a network failure | Read current state/activity before retrying a mutation, especially creation or registration, to avoid duplicates. |

@@ -801,6 +801,129 @@ class CoordinationIntegrationTest {
     assertTrue(getItem(chunk).path("claimToken").isNull());
   }
 
+  @Test
+  void mcpDeletesOwnedDataButRetainsAuditHistoryAndOtherWork() throws Exception {
+    JsonNode prerequisite = create(payload());
+    JsonNode item =
+        create(payload("dependencies", List.of(id(prerequisite)), "labels", List.of("cleanup")));
+    toolSuccess(
+        "update_chunk_guide",
+        payload("id", id(item), "version", -1, "purpose", "Disposable guide"));
+    toolSuccess("add_comment", payload("id", id(item), "body", "Keep this historical note"));
+    long before = itemActivityCount(id(item));
+    JsonNode result = toolSuccess("delete_item", payload("id", id(item), "version", version(item)));
+    assertEquals(id(item), result.path("id").asLong());
+    assertTrue(result.path("deleted").asBoolean());
+    mvc.perform(get(itemUrl(item))).andExpect(status().isNotFound());
+    assertEquals(prerequisite, getItem(prerequisite));
+    assertEquals(before + 1, itemActivityCount(id(item)));
+    JsonNode history = toolSuccess("get_activity", payload("itemId", id(item), "limit", 200));
+    assertTrue(history.toString().contains("Keep this historical note"));
+    assertTrue(history.toString().contains("Deleted " + item.path("key").asText()));
+    toolError("delete_item", payload("id", id(item), "version", version(item)), "not_found");
+    toolError("get_chunk_guide", payload("id", id(item)), "not_found");
+    mvc.perform(get("/").param("view", "activity")).andExpect(status().isOk());
+  }
+
+  @Test
+  void mcpDeletionRejectsMissingVersionsStaleVersionsAndReferencedWork() throws Exception {
+    JsonNode parent = create(payload());
+    JsonNode child = create(payload("parentId", id(parent)));
+    toolError("delete_item", payload("id", id(parent)), "validation_failed");
+    toolError("delete_item", payload("id", id(parent), "version", -1), "validation_failed");
+    toolError(
+        "delete_item", payload("id", id(parent), "version", version(parent)), "item_has_children");
+    JsonNode dependent = create(payload("dependencies", List.of(id(child))));
+    toolError(
+        "delete_item", payload("id", id(child), "version", version(child)), "item_is_prerequisite");
+    JsonNode changed = updateItem(child, payload("title", "Revised before deletion"));
+    toolError(
+        "delete_item", payload("id", id(child), "version", version(child)), "version_conflict");
+    assertEquals(changed, getItem(child));
+    toolSuccess("delete_item", payload("id", id(dependent), "version", version(dependent)));
+    toolSuccess("delete_item", payload("id", id(changed), "version", version(changed)));
+    toolSuccess("delete_item", payload("id", id(parent), "version", version(parent)));
+  }
+
+  @Test
+  void mcpDeletionRequiresClaimReleaseAndUnusedAgentProfilesEvenAfterExpiry() throws Exception {
+    JsonNode agent = register("deletion-test");
+    String agentId = agent.path("id").asText();
+    JsonNode claimed = claim(ready(payload()), agent);
+    toolError(
+        "delete_item",
+        payload("id", id(claimed), "version", version(claimed)),
+        "claim_requires_release");
+    toolError("delete_agent", payload("agentId", agentId), "agent_in_use");
+    clock.set(NOW.plus(Duration.ofMinutes(16)));
+    toolError(
+        "delete_item",
+        payload("id", id(claimed), "version", version(claimed)),
+        "claim_requires_release");
+    toolError("delete_agent", payload("agentId", agentId), "agent_in_use");
+    JsonNode released =
+        toolSuccess(
+            "release_task",
+            payload(
+                "id",
+                id(claimed),
+                "version",
+                version(claimed),
+                "agentId",
+                agentId,
+                "claimToken",
+                claimed.path("claimToken").asText()));
+    toolError("delete_agent", payload("agentId", agentId), "agent_in_use");
+    updateItem(released, payload("clearAssignee", true));
+    JsonNode deleted = toolSuccess("delete_agent", payload("agentId", agentId));
+    assertTrue(deleted.path("deleted").asBoolean());
+    assertEquals(agentId, deleted.path("agentId").asText());
+    for (JsonNode profile : toolSuccess("list_agents", payload()))
+      assertNotEquals(agentId, profile.path("id").asText());
+    toolError("delete_agent", payload("agentId", agentId), "not_found");
+    toolError("delete_agent", payload(), "validation_failed");
+    toolError("delete_agent", payload("agentId", "invalid"), "invalid_arguments");
+    success(
+        post("/api/v1/agents"),
+        payload("name", agent.path("name").asText(), "role", "Replacement"));
+  }
+
+  @Test
+  void deletedProjectKeysStayReservedAndDeletionToolsAreDiscoverable() throws Exception {
+    String prefix = "DEL" + UUID.randomUUID().toString().substring(0, 7).toUpperCase();
+    JsonNode project = create(payload("type", "INITIATIVE", "keyPrefix", prefix));
+    toolSuccess("delete_item", payload("id", id(project), "version", version(project)));
+    toolError(
+        "create_item",
+        payload("title", "Replacement project", "type", "INITIATIVE", "keyPrefix", prefix),
+        "prefix_in_use");
+    Set<String> found = new HashSet<>();
+    for (JsonNode tool : mcp("tools/list", payload()).path("result").path("tools")) {
+      if (Set.of("delete_item", "delete_agent").contains(tool.path("name").asText())) {
+        found.add(tool.path("name").asText());
+        assertTrue(tool.path("annotations").path("destructiveHint").asBoolean());
+        assertFalse(tool.path("inputSchema").path("additionalProperties").asBoolean());
+      }
+    }
+    assertEquals(Set.of("delete_item", "delete_agent"), found);
+  }
+
+  private JsonNode toolSuccess(String name, Map<String, Object> arguments) throws Exception {
+    JsonNode result =
+        mcp("tools/call", payload("name", name, "arguments", arguments)).path("result");
+    assertFalse(result.path("isError").asBoolean(), result.toString());
+    return mapper.readTree(result.path("content").get(0).path("text").asText());
+  }
+
+  private void toolError(String name, Map<String, Object> arguments, String code) throws Exception {
+    JsonNode result =
+        mcp("tools/call", payload("name", name, "arguments", arguments)).path("result");
+    assertTrue(result.path("isError").asBoolean(), result.toString());
+    assertTrue(
+        result.path("content").get(0).path("text").asText().startsWith(code + ":"),
+        result.toString());
+  }
+
   private JsonNode create(Map<String, Object> extra) throws Exception {
     Map<String, Object> body = payload("title", unique("Work"), "type", "TASK");
     body.putAll(extra);

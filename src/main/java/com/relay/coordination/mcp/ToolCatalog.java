@@ -138,6 +138,17 @@ public final class ToolCatalog {
             "name",
             "role"),
         tool(
+            "delete_item",
+            "Permanently delete one work item using its current version. Rejects children, incoming dependencies, and unreleased claims (even expired). Deletes its guide, labels and outgoing dependencies; retains activity and reserves ticket keys. Delete children separately first; no subtree cascade.",
+            fields("id", ID, "version", VERSION),
+            "id",
+            "version"),
+        tool(
+            "delete_agent",
+            "Permanently delete an unused agent profile. Release its claims and clear or change all assignments first. Retains activity; does not stop a runtime process.",
+            fields("agentId", UUID),
+            "agentId"),
+        tool(
             "claim_task",
             "Atomically acquire a 15-minute execution lease on ready or unfinished active work. Use your own registered agentId and the current version. Retain the returned claimToken; only one claimant can win.",
             fields("id", ID, "agentId", UUID, "version", VERSION),
@@ -181,8 +192,18 @@ public final class ToolCatalog {
 
   private static Map<String, Object> tool(
       String name, String description, Map<String, Object> properties, String... required) {
-    return Map.of(
-        "name", name, "description", description, "inputSchema", schema(properties, required));
+    Map<String, Object> definition =
+        new LinkedHashMap<>(
+            Map.of(
+                "name",
+                name,
+                "description",
+                description,
+                "inputSchema",
+                schema(properties, required)));
+    if (name.equals("delete_item") || name.equals("delete_agent"))
+      definition.put("annotations", Map.of("readOnlyHint", false, "destructiveHint", true));
+    return definition;
   }
 
   private static Map<String, Object> schema(Map<String, Object> properties, String... required) {

@@ -38,9 +38,15 @@ class PostgreSqlMigrationTest {
   @Autowired JdbcTemplate jdbc;
 
   @Test
+  void deletionMigrationRetainsExistingHistoryAndCascadesOnlyOwnedData() throws Exception {
+    DeletionMigrationTest.verifyUpgrade(
+        POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword(), "deletion_upgrade");
+  }
+
+  @Test
   void migrationCreatesTheCoordinationSchemaAndSingletonLock() {
     assertNotNull(flyway.info().current());
-    assertEquals("4", flyway.info().current().getVersion().getVersion());
+    assertEquals("5", flyway.info().current().getVersion().getVersion());
     assertEquals(
         1,
         jdbc.queryForObject("select count(*) from workspace_lock where id = 1", Integer.class)
