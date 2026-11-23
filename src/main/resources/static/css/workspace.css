@@ -289,6 +289,26 @@
   align-items:flex-start;
   margin-bottom:20px;
 }
+.project-card header>div,
+.project-plan-heading>div {
+  min-width:0;
+}
+.project-description {
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  line-height:1.8;
+  max-width:78ch;
+  tab-size:4;
+}
+.project-plan-heading {
+  align-items:flex-start;
+}
+.project-plan-heading>.button {
+  flex-shrink:0;
+}
+.page-heading .project-description {
+  font-size:15px;
+}
 .project-card h2 {
   font-size:19px;
   margin:4px 0 9px;
@@ -1006,6 +1026,12 @@
   }
 }
 @media(max-width:760px) {
+  .project-plan-heading {
+    flex-direction:column;
+  }
+  .project-plan-heading>div {
+    width:100%;
+  }
   .summary-grid {
     gap:10px;
     margin-bottom:20px;

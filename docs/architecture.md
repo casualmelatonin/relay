@@ -40,6 +40,8 @@ Ticket pages open in a reading view with complete, escaped plain-text sections. 
 
 Project entry links carry a `project` query parameter. The item page resolves an existing project for its return link, and forms and redirects preserve that context. Direct entry uses the chunk list as its return destination. This navigation context is kept in the web module; see the [back-to-project guide](chunks/back-to-project.md).
 
+Project descriptions use a shared `project-description` class in cards and project-plan headings to preserve plain-text newlines and indentation while wrapping long content. Text remains escaped by Thymeleaf. See the [project description formatting guide](chunks/project-description-formatting.md).
+
 Feature templates are composed only inside conditional `th:block` wrappers. Keeping conditions outside replacement elements avoids Thymeleaf replacement precedence accidentally rendering unrelated pages. CSS is split by responsibility; there is no frontend JavaScript framework or duplicated client-side state machine.
 
 ## Evolution
