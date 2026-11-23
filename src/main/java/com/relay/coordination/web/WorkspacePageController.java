@@ -41,9 +41,19 @@ public final class WorkspacePageController {
 
   @GetMapping("/items/{id}")
   public String item(
-      @PathVariable long id, @RequestParam(defaultValue = "false") boolean edit, Model model) {
+      @PathVariable long id,
+      @RequestParam(defaultValue = "false") boolean edit,
+      @RequestParam(required = false) Long project,
+      Model model) {
     var item = service.getItem(id);
-    views.populate(model, "tasks", "", "", "", "", "");
+    var snapshot = views.populate(model, "tasks", "", "", "", "", "");
+    var returnProject =
+        snapshot.items().stream()
+            .filter(i -> i.type() == ItemType.INITIATIVE && Long.valueOf(i.id()).equals(project))
+            .findFirst()
+            .orElse(null);
+    model.addAttribute("returnProject", returnProject);
+    if (returnProject != null) model.addAttribute("view", "initiatives");
     model.addAttribute("selected", item);
     if (!model.containsAttribute("editForm")) model.addAttribute("editForm", Map.of());
     model.addAttribute("editing", edit || !((Map<?, ?>) model.getAttribute("editForm")).isEmpty());

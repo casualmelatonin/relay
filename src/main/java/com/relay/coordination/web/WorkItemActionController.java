@@ -51,7 +51,11 @@ public final class WorkItemActionController {
 
   @PostMapping("/ui/items/{id}/update")
   public String update(
-      @PathVariable long id, @RequestParam Map<String, String> form, RedirectAttributes redirect) {
+      @PathVariable long id,
+      @RequestParam Map<String, String> form,
+      @RequestParam(required = false) Long project,
+      RedirectAttributes redirect) {
+    if (project != null) redirect.addAttribute("project", project);
     try {
       service.update(
           id,
@@ -89,7 +93,9 @@ public final class WorkItemActionController {
       @PathVariable long id,
       @RequestParam UUID agentId,
       @RequestParam long version,
+      @RequestParam(required = false) Long project,
       RedirectAttributes redirect) {
+    if (project != null) redirect.addAttribute("project", project);
     try {
       service.claim(id, new ClaimRequest(agentId, version), "workspace");
       redirect.addFlashAttribute("success", "Execution claim acquired for 15 minutes.");
@@ -105,7 +111,9 @@ public final class WorkItemActionController {
       @RequestParam UUID agentId,
       @RequestParam long version,
       @RequestParam UUID claimToken,
+      @RequestParam(required = false) Long project,
       RedirectAttributes redirect) {
+    if (project != null) redirect.addAttribute("project", project);
     try {
       service.release(id, new ReleaseRequest(agentId, version, claimToken), "workspace");
       redirect.addFlashAttribute("success", "Claim released. The task is available for a handoff.");
@@ -117,7 +125,11 @@ public final class WorkItemActionController {
 
   @PostMapping("/ui/items/{id}/comments")
   public String comment(
-      @PathVariable long id, @RequestParam String body, RedirectAttributes redirect) {
+      @PathVariable long id,
+      @RequestParam String body,
+      @RequestParam(required = false) Long project,
+      RedirectAttributes redirect) {
+    if (project != null) redirect.addAttribute("project", project);
     try {
       if (body == null || body.isBlank())
         throw new IllegalArgumentException("Write a comment before posting.");

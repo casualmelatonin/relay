@@ -1,6 +1,7 @@
 package com.relay.coordination.web;
 
 import com.relay.coordination.api.dto.WorkItemDto;
+import com.relay.coordination.api.dto.WorkspaceSnapshot;
 import com.relay.coordination.domain.ItemType;
 import com.relay.coordination.domain.Priority;
 import com.relay.coordination.domain.WorkStatus;
@@ -31,7 +32,7 @@ public final class WorkspaceViewFactory {
     this.demoData = demoData;
   }
 
-  public void populate(
+  public WorkspaceSnapshot populate(
       Model model,
       String view,
       String query,
@@ -100,5 +101,6 @@ public final class WorkspaceViewFactory {
     model.addAttribute("priorities", Priority.values());
     model.addAttribute("claimAgents", snapshot.agents());
     model.addAttribute("demoData", demoData);
+    return snapshot;
   }
 }
