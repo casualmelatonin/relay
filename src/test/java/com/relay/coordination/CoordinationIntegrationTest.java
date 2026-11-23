@@ -673,7 +673,7 @@ class CoordinationIntegrationTest {
     JsonNode project = success(get("/api/v1/items/" + projectId), null);
     assertEquals("WEB-1", project.path("key").asText());
     String page =
-        mvc.perform(get("/items/" + projectId))
+        mvc.perform(get("/items/" + projectId).param("edit", "true"))
             .andExpect(status().isOk())
             .andReturn()
             .getResponse()

@@ -700,9 +700,102 @@
 }
 .detail-heading {
   margin:18px 0 30px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:24px;
+}
+.detail-heading>div {
+  min-width:0;
+}
+.detail-heading>a {
+  flex-shrink:0;
 }
 .detail-heading h1 {
   font-size:25px;
+  overflow-wrap:anywhere;
+}
+.detail-metadata {
+  display:flex;
+  flex-wrap:wrap;
+  gap:22px 40px;
+  padding:18px 20px;
+  margin:0 0 24px;
+  border:1px solid var(--line);
+  background:var(--surface-raised);
+  border-radius:8px;
+}
+.detail-metadata dt {
+  color:var(--muted);
+  font-size:11px;
+  margin-bottom:6px;
+}
+.detail-metadata dd {
+  margin:0;
+  font-size:14px;
+  overflow-wrap:anywhere;
+}
+.detail-jump-links {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 20px;
+  padding-bottom:20px;
+  border-bottom:1px solid var(--line);
+  font-size:12px;
+  color:var(--accent);
+}
+.detail-jump-links a:hover {
+  text-decoration:underline;
+}
+.detail-reading-section {
+  padding:28px 0;
+  border-bottom:1px solid var(--line);
+  scroll-margin-top:24px;
+}
+.detail-reading-section h2 {
+  font-size:17px;
+  margin-bottom:14px;
+  letter-spacing:-.2px;
+}
+.detail-copy {
+  max-width:78ch;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  font-size:16px;
+  line-height:1.85;
+  tab-size:4;
+}
+.detail-empty {
+  max-width:70ch;
+  font-size:14px;
+  line-height:1.8;
+  color:var(--muted);
+}
+.detail-links {
+  display:grid;
+  gap:24px;
+}
+.detail-labels {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.detail-labels>span {
+  padding:4px 10px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:var(--surface-raised);
+  font-size:12px;
+  overflow-wrap:anywhere;
+}
+.detail-page .detail-edit-form textarea {
+  field-sizing:content;
+  min-height:10rem;
+  font-size:15px;
+  line-height:1.8;
+}
+.detail-page .detail-edit-form textarea[name="description"] {
+  min-height:16rem;
 }
 .detail-heading>p {
   font-size:12px;
@@ -863,6 +956,10 @@
   display:flex;
   gap:8px;
   align-items:center;
+  overflow-wrap:anywhere;
+}
+.detail-dependencies>a>span:nth-of-type(2) {
+  min-width:0;
 }
 @media(max-width:1300px) {
   .agent-grid {
@@ -1025,6 +1122,18 @@
   }
   .detail-heading h1 {
     font-size:22px;
+  }
+  .detail-heading {
+    flex-direction:column;
+    gap:16px;
+  }
+  .detail-metadata {
+    gap:18px 24px;
+    padding:16px;
+  }
+  .detail-copy {
+    font-size:15px;
+    line-height:1.8;
   }
   .detail-page .form-grid {
     gap:0;
